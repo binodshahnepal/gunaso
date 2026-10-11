@@ -35,6 +35,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="icon" type="image/png" sizes="32x32" href="/bkmch-logo.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/bkmch-logo.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/bkmch-logo.png" />
+        <link rel="shortcut icon" href="/bkmch-logo.png" />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
