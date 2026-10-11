@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  gunaso:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bkmch-gunaso-app
+    restart: always
+    ports:
+      - "3060:3060"
+    environment:
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - WHATSAPP_PHONE_ID=1408341022365612
+      - WHATSAPP_CLOUD_TOKEN=EAAPsbOHLuY4BSvLRTsm0UoE6aqE0BpfuFjB2M5ZBiJvAtYf6bkEZBIUHbA5NbjbE7cs1r3ul4FOiPKeKlBPoPdZChjU9ifmNByZBROXaZBq1gJPFtkkiquBbaq6suhWEsdzGnuNj7uexOxQxZAFJ75EoJ18yDLZBJtkMbWzcddZC58WQprnCXCx2N8u9xCwBBaDSt6DsMnp8CrW8sgu9A1vUaxbST1N2nZBIcwAyoXbO7OUBayYx3LL8xTlwWtt8THepNclsuU3IwGz8dOT0KGzOB6wZDZD
+      - NEXT_PUBLIC_APP_URL=https://gunaso.4-193-121-134.sslip.io
+      - PORT=3060
+    volumes:
+      # Persistent storage volume for SQLite database so data is never lost
+      - gunaso_db_data:/app/prisma
+
+volumes:
+  gunaso_db_data:
+    driver: local
