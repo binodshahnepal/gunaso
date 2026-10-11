@@ -23,6 +23,12 @@ import {
   Building2,
   Plus,
   Layers,
+  Users,
+  UserPlus,
+  Trash2,
+  Edit2,
+  Key,
+  Shield,
 } from 'lucide-react';
 
 interface Unit {
@@ -89,6 +95,23 @@ interface Stats {
   feedbackCount: number;
 }
 
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  departmentId: string | null;
+  department?: {
+    id: string;
+    nameEn: string;
+    nameNp: string;
+    code: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { actions: number };
+}
+
 export default function AdminDashboardPage() {
   const router = useRouter();
 
@@ -128,6 +151,23 @@ export default function AdminDashboardPage() {
   const [unitNameEn, setUnitNameEn] = useState('');
   const [unitNameNp, setUnitNameNp] = useState('');
   const [unitCode, setUnitCode] = useState('');
+
+  // Admin User Management Modal State
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminModalTab, setAdminModalTab] = useState<'LIST' | 'FORM'>('LIST');
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
+  const [savingAdmin, setSavingAdmin] = useState(false);
+  const [adminError, setAdminError] = useState('');
+  const [adminSuccess, setAdminSuccess] = useState('');
+
+  // Admin Form state
+  const [editingAdminId, setEditingAdminId] = useState<string | null>(null);
+  const [adminFormName, setAdminFormName] = useState('');
+  const [adminFormEmail, setAdminFormEmail] = useState('');
+  const [adminFormPassword, setAdminFormPassword] = useState('');
+  const [adminFormRole, setAdminFormRole] = useState('GRIEVANCE_ADMIN');
+  const [adminFormDeptId, setAdminFormDeptId] = useState('');
 
   const fetchStats = async () => {
     try {
@@ -286,6 +326,121 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const fetchAdminUsers = async () => {
+    setLoadingAdmins(true);
+    setAdminError('');
+    try {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      if (data.success) {
+        setAdminUsers(data.users);
+      } else {
+        setAdminError(data.message || 'Failed to load administrators');
+      }
+    } catch (err: any) {
+      setAdminError(err.message || 'Error loading administrators');
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  const openCreateAdminModal = () => {
+    setEditingAdminId(null);
+    setAdminFormName('');
+    setAdminFormEmail('');
+    setAdminFormPassword('');
+    setAdminFormRole('GRIEVANCE_ADMIN');
+    setAdminFormDeptId('');
+    setAdminError('');
+    setAdminSuccess('');
+    setAdminModalTab('FORM');
+  };
+
+  const openEditAdminModal = (user: AdminUser) => {
+    setEditingAdminId(user.id);
+    setAdminFormName(user.name);
+    setAdminFormEmail(user.email);
+    setAdminFormPassword('');
+    setAdminFormRole(user.role);
+    setAdminFormDeptId(user.departmentId || '');
+    setAdminError('');
+    setAdminSuccess('');
+    setAdminModalTab('FORM');
+  };
+
+  const handleSaveAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingAdmin(true);
+    setAdminError('');
+    setAdminSuccess('');
+
+    try {
+      const payload: any = {
+        name: adminFormName.trim(),
+        email: adminFormEmail.trim(),
+        role: adminFormRole,
+        departmentId: adminFormDeptId || null,
+      };
+
+      if (adminFormPassword.trim()) {
+        payload.password = adminFormPassword.trim();
+      }
+
+      let res: Response;
+      if (editingAdminId) {
+        res = await fetch(`/api/admin/users/${editingAdminId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        if (!adminFormPassword.trim()) {
+          throw new Error('Password is required for a new administrator.');
+        }
+        res = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Operation failed');
+      }
+
+      setAdminSuccess(data.message || 'Administrator saved successfully!');
+      fetchAdminUsers();
+      setTimeout(() => {
+        setAdminModalTab('LIST');
+        setAdminSuccess('');
+      }, 800);
+    } catch (err: any) {
+      setAdminError(err.message || 'Error saving administrator');
+    } finally {
+      setSavingAdmin(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete administrator "${name}"?`)) {
+      return;
+    }
+    setAdminError('');
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to delete administrator');
+      }
+      fetchAdminUsers();
+    } catch (err: any) {
+      setAdminError(err.message || 'Error deleting administrator');
+    }
+  };
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/admin/login');
@@ -352,6 +507,18 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setShowAdminModal(true);
+                setAdminModalTab('LIST');
+                fetchAdminUsers();
+              }}
+              className="px-3.5 py-2 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <Users className="w-4 h-4" />
+              <span>Manage Admins</span>
+            </button>
+
             <button
               onClick={() => setShowDeptModal(true)}
               className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
@@ -606,6 +773,255 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </main>
+
+      {/* ADMIN USER MANAGEMENT MODAL */}
+      {showAdminModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-3xl w-full shadow-2xl overflow-hidden space-y-6 my-8">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Shield className="w-5 h-5 text-blue-400" />
+                <div>
+                  <h3 className="text-lg font-bold text-white">Administrator Management</h3>
+                  <p className="text-xs text-slate-400">Create, edit, or remove hospital administrative accounts</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAdminModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 pb-6 space-y-5">
+              {/* Tabs */}
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { setAdminModalTab('LIST'); setAdminError(''); setAdminSuccess(''); }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+                      adminModalTab === 'LIST'
+                        ? 'bg-blue-700 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    All Administrators ({adminUsers.length})
+                  </button>
+                  <button
+                    onClick={openCreateAdminModal}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                      adminModalTab === 'FORM' && !editingAdminId
+                        ? 'bg-blue-700 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>+ Add New Admin</span>
+                  </button>
+                </div>
+
+                {adminModalTab === 'FORM' && editingAdminId && (
+                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                    Editing Mode
+                  </span>
+                )}
+              </div>
+
+              {/* Alert Feedback */}
+              {adminError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  <span>{adminError}</span>
+                </div>
+              )}
+              {adminSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>{adminSuccess}</span>
+                </div>
+              )}
+
+              {/* TAB 1: LIST VIEW */}
+              {adminModalTab === 'LIST' && (
+                <div className="space-y-3">
+                  {loadingAdmins ? (
+                    <div className="p-8 text-center text-xs text-slate-400">Loading administrators...</div>
+                  ) : adminUsers.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500">No administrators found.</div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
+                          <tr>
+                            <th className="py-2.5 px-3.5">Name & Email</th>
+                            <th className="py-2.5 px-3.5">Role</th>
+                            <th className="py-2.5 px-3.5">Assigned Dept</th>
+                            <th className="py-2.5 px-3.5">Created</th>
+                            <th className="py-2.5 px-3.5 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {adminUsers.map((u) => (
+                            <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-3 px-3.5">
+                                <div className="font-bold text-slate-900">{u.name}</div>
+                                <div className="text-[11px] text-slate-500 font-mono">{u.email}</div>
+                              </td>
+                              <td className="py-3 px-3.5">
+                                <span
+                                  className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase tracking-wider ${
+                                    u.role === 'SUPER_ADMIN'
+                                      ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                      : u.role === 'GRIEVANCE_ADMIN'
+                                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                      : u.role === 'DEPT_HEAD'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                      : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  }`}
+                                >
+                                  {u.role.replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3.5 text-slate-600">
+                                {u.department ? u.department.nameEn : <span className="text-slate-400 italic">Hospital-wide</span>}
+                              </td>
+                              <td className="py-3 px-3.5 text-slate-400 text-[11px]">
+                                {new Date(u.createdAt).toLocaleDateString()}
+                              </td>
+                              <td className="py-3 px-3.5 text-right space-x-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditAdminModal(u)}
+                                  className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+                                  title="Edit Admin"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAdmin(u.id, u.name)}
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
+                                  title="Delete Admin"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB 2: CREATE / EDIT FORM */}
+              {adminModalTab === 'FORM' && (
+                <form onSubmit={handleSaveAdmin} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Dr. Ramesh Sharma"
+                        value={adminFormName}
+                        onChange={(e) => setAdminFormName(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Email Address *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="e.g. ramesh@hospital.gov.np"
+                        value={adminFormEmail}
+                        onChange={(e) => setAdminFormEmail(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Password {editingAdminId ? '(Leave blank to keep existing)' : '*'}
+                      </label>
+                      <input
+                        type="password"
+                        required={!editingAdminId}
+                        placeholder={editingAdminId ? 'Enter new password to change' : 'Min 6 characters'}
+                        value={adminFormPassword}
+                        onChange={(e) => setAdminFormPassword(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Administrative Role *
+                      </label>
+                      <select
+                        value={adminFormRole}
+                        onChange={(e) => setAdminFormRole(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="SUPER_ADMIN">SUPER_ADMIN (Full Hospital Control)</option>
+                        <option value="GRIEVANCE_ADMIN">GRIEVANCE_ADMIN (Review Committee Officer)</option>
+                        <option value="DEPT_HEAD">DEPT_HEAD (Department Head)</option>
+                        <option value="INVESTIGATOR">INVESTIGATOR (Internal Inquiry)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Assigned Department (Optional, for Department Heads)
+                    </label>
+                    <select
+                      value={adminFormDeptId}
+                      onChange={(e) => setAdminFormDeptId(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Hospital-wide (All Departments)</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.nameEn} ({d.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setAdminModalTab('LIST')}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingAdmin}
+                      className="px-6 py-2 bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                    >
+                      {savingAdmin ? 'Saving...' : editingAdminId ? 'Save Changes' : 'Create Administrator'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DEPARTMENT & UNIT CREATOR MODAL */}
       {showDeptModal && (
