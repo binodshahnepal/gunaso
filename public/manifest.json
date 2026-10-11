@@ -1,0 +1,99 @@
+{
+  "name": "BPKMCH Gunaso Portal - क्यान्सर अस्पताल गुनासो प्रणाली",
+  "short_name": "BPKMCH Gunaso",
+  "description": "Official Patient Grievance & Complaint Redressal Portal for B.P. Koirala Memorial Cancer Hospital (BPKMCH), Bharatpur-7, Chitwan, Nepal.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#27548b",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "ne-NP",
+  "categories": ["medical", "health", "government"],
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "File Complaint (उजुरी दिनुहोस्)",
+      "short_name": "New Grievance",
+      "description": "Lodge a hospital grievance or complaint",
+      "url": "/complaint/new",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Track Status (स्थिति हेर्नुहोस्)",
+      "short_name": "Track Grievance",
+      "description": "Check the status of your submitted complaint",
+      "url": "/track",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Patient Dashboard (बिरामी पोर्टल)",
+      "short_name": "My Complaints",
+      "description": "View all complaints and responses",
+      "url": "/patient/dashboard",
+      "icons": [{ "src": "/icons/icon-96x96.png", "sizes": "96x96" }]
+    }
+  ]
+}
