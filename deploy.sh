@@ -19,8 +19,8 @@ npm install --legacy-peer-deps
 
 echo "🗄️ 3. Updating Prisma Client & Database Schema..."
 export DATABASE_URL="file:./dev.db"
-npx prisma generate
-npx prisma db push
+./node_modules/.bin/prisma generate
+./node_modules/.bin/prisma db push
 
 echo "🏗️ 4. Building Next.js Application..."
 npm run build
