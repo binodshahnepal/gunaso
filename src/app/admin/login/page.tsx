@@ -46,14 +46,20 @@ export default function AdminLoginPage() {
 
       <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-lg p-8 space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 bg-emerald-950 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto shadow-md">
-              <ShieldCheck className="w-8 h-8" />
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 bg-white rounded-full p-1 shadow-md mx-auto flex items-center justify-center border border-slate-200">
+              <img
+                src="/bkmch-logo.png"
+                alt="BPKMCH Logo"
+                className="w-full h-full object-contain rounded-full"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Admin & Staff Portal</h1>
-            <p className="text-xs text-slate-500">
-              Grievance Officer & Hospital Management Login / प्रशासन लगइन
-            </p>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Admin & Staff Portal</h1>
+              <p className="text-xs text-slate-500 mt-1">
+                बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल • Grievance Administration
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">

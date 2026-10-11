@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { ShieldAlert, FileText, Search, UserCheck, Menu, X, Home, UserPlus, User } from 'lucide-react';
+import { ShieldAlert, FileText, Search, UserCheck, Menu, X, Home, UserPlus, User, Phone } from 'lucide-react';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -52,11 +52,14 @@ export default function Navbar() {
             </div>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-3">
-            <span className="px-3.5 py-1.5 bg-white/10 border border-white/20 backdrop-blur-md rounded-xl text-xs font-bold text-blue-50 flex items-center gap-2">
-              <ShieldAlert className="w-4 h-4 text-emerald-400" />
-              <span>Direct Patient Grievance Cell</span>
-            </span>
+          <div className="hidden lg:flex flex-col items-end gap-1 text-right">
+            <div className="flex items-center gap-2 px-3 py-1 bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-sm">
+              <Phone className="w-3.5 h-3.5 shrink-0" />
+              <span>Inquiry / Emergency: 056-597005</span>
+            </div>
+            <div className="text-[11px] text-blue-100 flex items-center gap-1.5 font-medium">
+              <span>Phone: <strong>056-597005</strong>, 056-524501</span>
+            </div>
           </div>
         </div>
       </div>
@@ -201,6 +204,15 @@ export default function Navbar() {
             <UserCheck className="w-4 h-4" />
             Admin Portal / प्रशासन लगइन
           </Link>
+
+          <div className="pt-3 border-t border-slate-100 px-3 text-xs text-slate-600 space-y-1 bg-slate-50 rounded-lg">
+            <div className="flex items-center gap-1.5 font-bold text-amber-700">
+              <Phone className="w-3.5 h-3.5" />
+              <span>Inquiry / Emergency: 056-597005</span>
+            </div>
+            <div>Phone: 056-597005, 056-524501</div>
+            <div>Email: administration@bpkmch.gov.np</div>
+          </div>
         </div>
       )}
     </header>

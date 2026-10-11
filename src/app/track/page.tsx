@@ -186,13 +186,22 @@ function TrackContent() {
     <div className="space-y-8">
       {/* SEARCH BOX */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-4">
-        <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
-            Track Grievance Status / उजुरी स्थिति खोज्नुहोस्
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-600">
-            Search by <strong>Tracking ID</strong> (e.g. GN-2026-8942) or by your <strong>Mobile Number</strong> (e.g. 9821804978).
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+              Track Grievance Status / उजुरी स्थिति खोज्नुहोस्
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-600">
+              Search by <strong>Tracking ID</strong> (e.g. GN-2026-8942) or by your <strong>Mobile Number</strong> (e.g. 9821804978).
+            </p>
+          </div>
+          <div className="w-14 h-14 bg-white rounded-full p-0.5 border border-slate-200 shadow-sm shrink-0 flex items-center justify-center">
+            <img
+              src="/bkmch-logo.png"
+              alt="BPKMCH Logo"
+              className="w-full h-full object-contain rounded-full"
+            />
+          </div>
         </div>
 
         <form onSubmit={handleSearchSubmit} className="space-y-4">

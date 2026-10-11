@@ -61,14 +61,20 @@ export default function PatientRegisterPage() {
 
       <main className="flex-1 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl shadow-lg p-6 sm:p-8 space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 bg-[#27548b] text-white rounded-2xl flex items-center justify-center mx-auto shadow-md">
-              <UserPlus className="w-8 h-8" />
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 bg-white rounded-full p-1 shadow-md mx-auto flex items-center justify-center border border-slate-200">
+              <img
+                src="/bkmch-logo.png"
+                alt="BPKMCH Logo"
+                className="w-full h-full object-contain rounded-full"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Create Patient Account</h1>
-            <p className="text-xs text-slate-600">
-              रोगी खाता सिर्जना गर्नुहोस् (उजुरीको स्थिति सहजै हेर्नका लागि)
-            </p>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Create Patient Account</h1>
+              <p className="text-xs text-slate-600 mt-1">
+                रोगी खाता सिर्जना गर्नुहोस् (उजुरीको स्थिति सहजै हेर्नका लागि)
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleRegister} className="space-y-4">

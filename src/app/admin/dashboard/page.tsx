@@ -497,12 +497,16 @@ export default function AdminDashboardPage() {
       <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center font-bold text-white shadow-md">
-              <ShieldAlert className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-full bg-white p-0.5 shadow-md flex items-center justify-center shrink-0">
+              <img
+                src="/bkmch-logo.png"
+                alt="BPKMCH Logo"
+                className="w-full h-full object-contain rounded-full"
+              />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-white">Gunaso Admin Portal</h1>
-              <p className="text-xs text-slate-400">Hospital Grievance Management & Review Committee</p>
+              <h1 className="font-bold text-lg text-white">BPKMCH Gunaso Admin Portal</h1>
+              <p className="text-xs text-slate-400">बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल • Grievance Management</p>
             </div>
           </div>
 

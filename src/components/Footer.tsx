@@ -9,10 +9,10 @@ export default function Footer() {
           {/* Col 1: Hospital Brand Info */}
           <div className="space-y-4 md:col-span-1">
             <div className="flex items-center gap-3 text-white font-bold text-lg">
-              <div className="w-10 h-10 bg-white rounded-full p-0.5 shadow-md flex items-center justify-center shrink-0">
+              <div className="w-12 h-12 bg-white rounded-full p-0.5 shadow-md flex items-center justify-center shrink-0">
                 <img
                   src="/bkmch-logo.png"
-                  alt="BPKCH Logo"
+                  alt="BPKMCH Logo"
                   className="w-full h-full object-contain rounded-full"
                 />
               </div>
@@ -82,15 +82,15 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>Phone: 056-524501, 056-514501</span>
+                <span>Phone: 056-597005, 056-524501, 056-514501</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Emergency/Inquiry: 056-535550</span>
+                <span>Emergency / Inquiry: 056-597005, 056-535550</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>bpkmch@ntc.net.np / info@bpkmch.gov.np</span>
+                <span>administration@bpkmch.gov.np / info@bpkmch.gov.np</span>
               </li>
               <li className="flex items-center gap-2.5 text-amber-300 text-xs">
                 <MessageSquareText className="w-4 h-4 shrink-0" />

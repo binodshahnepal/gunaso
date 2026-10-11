@@ -88,11 +88,20 @@ export default function HomePage() {
             <div className="lg:col-span-5">
               <div className="bg-slate-900/90 border border-blue-700/60 backdrop-blur-md rounded-2xl p-6 shadow-2xl space-y-5">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                  <div className="flex items-center gap-2 text-blue-300 font-semibold text-sm">
-                    <ShieldCheck className="w-5 h-5 text-amber-300" />
-                    <span>Quick Status Tracker</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-full p-0.5 shadow-sm flex items-center justify-center shrink-0">
+                      <img
+                        src="/bkmch-logo.png"
+                        alt="BPKMCH Logo"
+                        className="w-full h-full object-contain rounded-full"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-blue-200 font-bold text-xs">BPKMCH Grievance Cell</div>
+                      <div className="text-[10px] text-slate-400">Live Case Tracking Demonstration</div>
+                    </div>
                   </div>
-                  <span className="text-xs bg-blue-950 text-blue-300 px-2 py-0.5 rounded border border-blue-800 font-mono">
+                  <span className="text-xs bg-blue-950 text-amber-300 px-2 py-0.5 rounded border border-blue-800 font-mono">
                     GN-2026-8942
                   </span>
                 </div>

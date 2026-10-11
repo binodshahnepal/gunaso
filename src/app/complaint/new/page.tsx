@@ -296,15 +296,24 @@ export default function LodgeComplaintPage() {
         ) : (
           /* MAIN COMPLAINT FORM */
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="bg-[#27548b] text-white p-6 sm:p-8 space-y-2">
-              <div className="inline-flex items-center gap-2 bg-white/10 text-blue-100 text-xs px-2.5 py-1 rounded-full font-medium">
-                <FileText className="w-3.5 h-3.5" />
-                <span>Patient Grievance Form / उजुरी फारम</span>
+            <div className="bg-[#27548b] text-white p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 bg-white/10 text-blue-100 text-xs px-2.5 py-1 rounded-full font-medium">
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Patient Grievance Form / उजुरी फारम</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold">Lodge a Hospital Complaint</h1>
+                <p className="text-xs sm:text-sm text-blue-100">
+                  Please select department and unit to help our grievance committee investigate and resolve your issue.
+                </p>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold">Lodge a Hospital Complaint</h1>
-              <p className="text-xs sm:text-sm text-blue-100">
-                Please select department and unit to help our grievance committee investigate and resolve your issue.
-              </p>
+              <div className="hidden sm:flex w-16 h-16 bg-white rounded-full p-1 shadow-md shrink-0 items-center justify-center">
+                <img
+                  src="/bkmch-logo.png"
+                  alt="BPKMCH Logo"
+                  className="w-full h-full object-contain rounded-full"
+                />
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
