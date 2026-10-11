@@ -17,12 +17,12 @@ export default function Footer() {
                 />
               </div>
               <div className="leading-tight">
-                <div className="text-sm font-extrabold text-white">BPKCH Gunaso Portal</div>
+                <div className="text-sm font-extrabold text-white">BPKMCH Gunaso Portal</div>
                 <div className="text-[10px] text-blue-200 font-normal">बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल</div>
               </div>
             </div>
             <p className="text-xs text-blue-100/80 leading-relaxed">
-              Official Grievance & Complaint Redressal Portal for B.P. Koirala Memorial Cancer Hospital, Bharatpur-7, Chitwan. Dedicated to transparent patient care, quality healthcare, and prompt issue investigation.
+              Official Grievance & Complaint Redressal Portal for B.P. Koirala Memorial Cancer Hospital (BPKMCH), Bharatpur-7, Chitwan, Nepal. Dedicated to transparent patient care, quality healthcare, and prompt issue investigation.
             </p>
           </div>
 
@@ -43,6 +43,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link href="/patient/dashboard" className="hover:text-amber-300 transition-colors flex items-center gap-1.5">
+                  👤 Patient Dashboard (बिरामी पोर्टल)
+                </Link>
+              </li>
+              <li>
                 <Link href="/admin/login" className="hover:text-amber-300 transition-colors flex items-center gap-1.5">
                   🔐 Admin Portal (प्रशासन लगइन)
                 </Link>
@@ -59,40 +64,44 @@ export default function Footer() {
               <li>• Radiation Oncology & Surgical Oncology</li>
               <li>• Medical Oncology & Palliative Care</li>
               <li>• Emergency (ER) & ICU / CCU Wards</li>
-              <li>• Outpatient (OPD) & Inpatient Wards</li>
+              <li>• Outpatient (OPD) & Inpatient (IPD) Wards</li>
               <li>• Radiology, Pathology & Nuclear Medicine</li>
               <li>• Billing, Cash Counters & Health Insurance</li>
             </ul>
           </div>
 
-          {/* Col 4: BPKCH Grievance Cell Contact */}
+          {/* Col 4: BPKMCH Grievance Cell Contact */}
           <div>
             <h3 className="text-xs font-bold text-white tracking-wider uppercase mb-4 border-b border-blue-800/80 pb-2">
-              Grievance Cell / गुनासो कक्ष
+              BPKMCH Contact / सम्पर्क विवरण
             </h3>
-            <ul className="space-y-3 text-xs text-blue-100">
+            <ul className="space-y-2.5 text-xs text-blue-100">
               <li className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <span>B.P. Koirala Memorial Cancer Hospital, Bharatpur-7, Chitwan, Nepal</span>
+                <span>Bharatpur-7, Chitwan, Bagmati Province, Nepal</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>+977-56-524501 / 525555 / 9855000000</span>
+                <span>Phone: 056-524501, 056-514501</span>
+              </li>
+              <li className="flex items-center gap-2.5">
+                <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Emergency/Inquiry: 056-535550</span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Mail className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>gunaso@bpkch.org.np / info@bpkch.org.np</span>
+                <span>bpkmch@ntc.net.np / info@bpkmch.gov.np</span>
               </li>
               <li className="flex items-center gap-2.5 text-amber-300 text-xs">
                 <MessageSquareText className="w-4 h-4 shrink-0" />
-                <span>WhatsApp Grievance Alerts Enabled</span>
+                <span>Website: www.bpkmch.gov.np</span>
               </li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-blue-900/80 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-blue-300/80">
-          <p>© 2026 B.P. Koirala Memorial Cancer Hospital (BPKCH) Gunaso Portal. All rights reserved.</p>
+          <p>© 2026 B.P. Koirala Memorial Cancer Hospital (BPKMCH) Gunaso Portal. All rights reserved.</p>
           <p className="mt-2 sm:mt-0">Confidential • Secure • Transparent</p>
         </div>
       </div>

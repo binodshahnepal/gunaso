@@ -36,7 +36,7 @@ export async function sendWhatsAppAlert(params: WhatsAppAlertParams) {
 
   if (type === 'CREATED') {
     messageText =
-      `🏥 *B.P. Koirala Memorial Cancer Hospital (BPKCH)*\n` +
+      `🏥 *B.P. Koirala Memorial Cancer Hospital (BPKMCH)*\n` +
       `*Gunaso Grievance Ticket Created*\n\n` +
       `Dear ${patientName || 'Patient'},\n` +
       `Your grievance has been successfully lodged.\n\n` +
@@ -48,14 +48,14 @@ export async function sendWhatsAppAlert(params: WhatsAppAlertParams) {
       `_Our Grievance Committee will investigate your issue promptly._`;
   } else if (type === 'RESOLVED') {
     messageText =
-      `🏥 *BPKCH Grievance Resolution Alert*\n\n` +
+      `🏥 *BPKMCH Grievance Resolution Alert*\n\n` +
       `Dear ${patientName || 'Patient'},\n` +
       `Your grievance *${trackingId}* has been *RESOLVED* by hospital administration.\n\n` +
       `📝 *Action Taken Report:*\n${actionSummary || 'Action logged by grievance committee.'}\n\n` +
       `🔍 *View Full Report & Rate Satisfaction:* ${trackingUrl}`;
   } else {
     messageText =
-      `🏥 *BPKCH Grievance Status Update*\n\n` +
+      `🏥 *BPKMCH Grievance Status Update*\n\n` +
       `Dear ${patientName || 'Patient'},\n` +
       `The status of your grievance *${trackingId}* has been updated to: *${status}*.\n\n` +
       `🔍 *Track Live Status:* ${trackingUrl}`;

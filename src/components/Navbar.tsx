@@ -129,7 +129,7 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden w-full flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">BPKCH Grievance Portal</span>
+            <span className="text-xs font-bold text-slate-700">BPKMCH Grievance Portal</span>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="p-1.5 text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200"

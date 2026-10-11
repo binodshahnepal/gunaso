@@ -35,7 +35,7 @@ export default function HomePage() {
               </div>
 
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
-                BPKCH Patient Grievance & <br />
+                BPKMCH Patient Grievance & <br />
                 <span className="text-amber-300">Gunaso Portal (गुनासो)</span>
               </h1>
 
@@ -136,7 +136,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-3 mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-              Why Use the BPKCH Gunaso Portal? / मुख्य विशेषताहरू
+              Why Use the BPKMCH Gunaso Portal? / मुख्य विशेषताहरू
             </h2>
             <p className="text-slate-600 text-sm sm:text-base">
               Designed to uphold patient dignity, privacy, and accountability in cancer care & general hospital services.
