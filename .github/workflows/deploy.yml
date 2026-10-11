@@ -1,0 +1,63 @@
+name: CI/CD Pipeline - Deploy to Ubuntu Server
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-and-test:
+    name: Build & Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Prisma Client
+        env:
+          DATABASE_URL: "file:./dev.db"
+        run: npx prisma generate
+
+      - name: Build Next.js Application
+        env:
+          DATABASE_URL: "file:./dev.db"
+          NEXT_PUBLIC_APP_URL: "https://gunaso.4-193-121-134.sslip.io"
+        run: npm run build
+
+  deploy:
+    name: Deploy to Ubuntu VPS
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST || '4.193.121.134' }}
+          username: ${{ secrets.SERVER_USER || 'tivrasoft' }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            export PATH=$PATH:/usr/bin:/usr/local/bin
+            cd /home/tivrasoft/gunaso
+            git fetch origin
+            git reset --hard origin/main || git reset --hard origin/master
+            npm install --legacy-peer-deps
+            export DATABASE_URL="file:./dev.db"
+            npx prisma generate
+            npx prisma db push
+            npm run build
+            pm2 restart bkmch-gunaso || pm2 start npm --name "bkmch-gunaso" -- start -- -p 3060
+            pm2 save

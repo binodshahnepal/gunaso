@@ -1,0 +1,170 @@
+// Prisma Schema for BPKCH Hospital Complaint & Grievance Management System ("Gunaso Portal")
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  GRIEVANCE_ADMIN
+  DEPT_HEAD
+  INVESTIGATOR
+}
+
+enum Category {
+  MEDICAL_CARE
+  STAFF_BEHAVIOR
+  BILLING
+  HYGIENE
+  FACILITIES
+  DELAY_IN_SERVICE
+  PHARMACY
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Status {
+  SUBMITTED
+  UNDER_INVESTIGATION
+  ACTION_TAKEN
+  RESOLVED
+  REJECTED
+  ESCALATED
+}
+
+enum ActionType {
+  STATUS_CHANGE
+  ASSIGNMENT
+  INTERNAL_NOTE
+  ACTION_LOGGED
+  PUBLIC_UPDATE
+  ESCALATED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         Role       @default(GRIEVANCE_ADMIN)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  actions      ComplaintAction[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Patient {
+  id           String      @id @default(cuid())
+  name         String
+  phone        String?     @unique
+  email        String?     @unique
+  passwordHash String
+  complaints   Complaint[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Department {
+  id         String      @id @default(cuid())
+  nameEn     String
+  nameNp     String
+  code       String      @unique // e.g. "EMG", "ICU", "OPD", "BIL", "PHARM"
+  slaHours   Int         @default(48)
+  headUserId String?
+  users      User[]
+  units      Unit[]
+  complaints Complaint[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Unit {
+  id           String      @id @default(cuid())
+  nameEn       String
+  nameNp       String
+  code         String      @unique // e.g. "OPD-CARD", "EMG-TRI"
+  departmentId String
+  department   Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  complaints   Complaint[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model Complaint {
+  id               String       @id @default(cuid())
+  trackingId       String       @unique // e.g. "GN-2026-8942"
+  pin              String       // 4-digit security PIN for tracking
+  isAnonymous      Boolean      @default(false)
+  patientId        String?
+  registeredPatient Patient?    @relation(fields: [patientId], references: [id])
+  patientName      String?
+  patientPhone     String?
+  patientEmail     String?
+  mrnNumber        String?      // Patient ID / Medical Record Number
+  category         Category     @default(OTHER)
+  departmentId     String
+  department       Department   @relation(fields: [departmentId], references: [id])
+  unitId           String?
+  unit             Unit?        @relation(fields: [unitId], references: [id])
+  targetPersonName String?
+  targetPersonRole String?
+  incidentDate     DateTime
+  location         String
+  subject          String
+  description      String
+  priority         Priority     @default(MEDIUM)
+  status           Status       @default(SUBMITTED)
+  actionSummary    String?      // Public resolution summary for patient view
+  resolvedAt       DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  actions     ComplaintAction[]
+  attachments Attachment[]
+  feedback    Feedback?
+}
+
+model ComplaintAction {
+  id          String     @id @default(cuid())
+  complaintId String
+  complaint   Complaint  @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?      @relation(fields: [actorId], references: [id])
+  actionType  ActionType
+  description String
+  isPublic    Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+}
+
+model Attachment {
+  id          String    @id @default(cuid())
+  complaintId String
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  fileUrl     String
+  fileName    String
+  fileType    String
+  fileSize    Int?
+  uploadedBy  String    @default("PATIENT")
+  createdAt   DateTime  @default(now())
+}
+
+model Feedback {
+  id          String    @id @default(cuid())
+  complaintId String    @unique
+  complaint   Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  rating      Int
+  comments    String?
+  createdAt   DateTime  @default(now())
+}
