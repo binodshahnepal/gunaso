@@ -50,14 +50,5 @@ jobs:
           port: 22
           script_stop: true
           script: |
-            export PATH=$PATH:/usr/bin:/usr/local/bin
-            cd /home/tivrasoft/gunaso
-            git fetch origin
-            git reset --hard origin/main || git reset --hard origin/master
-            npm install --legacy-peer-deps
-            export DATABASE_URL="file:./dev.db"
-            npx prisma generate
-            npx prisma db push
-            npm run build
-            pm2 restart bkmch-gunaso || pm2 start npm --name "bkmch-gunaso" -- start -- -p 3060
-            pm2 save
+            chmod +x /home/tivrasoft/gunaso/deploy.sh
+            /home/tivrasoft/gunaso/deploy.sh
