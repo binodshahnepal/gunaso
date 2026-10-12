@@ -4,9 +4,22 @@ import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
 import { Role } from '@prisma/client';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const departmentId = searchParams.get('departmentId');
+    const role = searchParams.get('role');
+
+    const where: any = {};
+    if (departmentId && departmentId !== 'ALL') {
+      where.departmentId = departmentId;
+    }
+    if (role && role !== 'ALL') {
+      where.role = role as Role;
+    }
+
     const users = await prisma.user.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -25,7 +38,7 @@ export async function GET() {
         createdAt: true,
         updatedAt: true,
         _count: {
-          select: { actions: true },
+          select: { actions: true, assignedComplaints: true },
         },
       },
     });

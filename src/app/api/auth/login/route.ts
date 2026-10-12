@@ -42,6 +42,7 @@ export async function POST(req: Request) {
         name: user.name,
         email: user.email,
         role: user.role,
+        departmentId: user.departmentId,
         department: user.department ? user.department.nameEn : null,
       },
     });
@@ -51,6 +52,8 @@ export async function POST(req: Request) {
       email: user.email,
       name: user.name,
       role: user.role,
+      departmentId: user.departmentId,
+      departmentName: user.department ? user.department.nameEn : null,
     }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

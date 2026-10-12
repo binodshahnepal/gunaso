@@ -9,7 +9,8 @@ export async function GET(req: Request) {
     const departmentId = searchParams.get('departmentId');
     const category = searchParams.get('category');
     const priority = searchParams.get('priority');
-    const search = searchParams.get('search')?.trim();
+    const assignedToId = searchParams.get('assignedToId');
+    const search = searchParams.get('search');
 
     const where: any = {};
 
@@ -19,6 +20,14 @@ export async function GET(req: Request) {
 
     if (departmentId && departmentId !== 'ALL') {
       where.departmentId = departmentId;
+    }
+
+    if (assignedToId && assignedToId !== 'ALL') {
+      if (assignedToId === 'UNASSIGNED') {
+        where.assignedToId = null;
+      } else {
+        where.assignedToId = assignedToId;
+      }
     }
 
     if (category && category !== 'ALL') {
@@ -45,9 +54,27 @@ export async function GET(req: Request) {
       include: {
         department: true,
         unit: true,
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            departmentId: true,
+          },
+        },
         actions: {
           orderBy: { createdAt: 'desc' },
-          take: 5,
+          take: 10,
+          include: {
+            actor: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+              },
+            },
+          },
         },
         feedback: true,
       },

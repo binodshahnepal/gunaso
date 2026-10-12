@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import {
@@ -29,6 +28,16 @@ import {
   Edit2,
   Key,
   Shield,
+  Bell,
+  BellRing,
+  Check,
+  CheckCheck,
+  RefreshCw,
+  User,
+  ArrowRight,
+  Eye,
+  MessageSquare,
+  AlertCircle,
 } from 'lucide-react';
 
 interface Unit {
@@ -53,6 +62,11 @@ interface ActionLog {
   description: string;
   isPublic: boolean;
   createdAt: string;
+  actor?: {
+    id: string;
+    name: string;
+    role: string;
+  } | null;
 }
 
 interface Complaint {
@@ -79,6 +93,13 @@ interface Complaint {
   actionSummary: string | null;
   resolvedAt: string | null;
   createdAt: string;
+  assignedToId?: string | null;
+  assignedTo?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  } | null;
   actions: ActionLog[];
   feedback: { rating: number; comments: string | null } | null;
 }
@@ -109,27 +130,93 @@ interface AdminUser {
   } | null;
   createdAt: string;
   updatedAt: string;
-  _count?: { actions: number };
+  _count?: {
+    actions: number;
+    assignedComplaints: number;
+  };
+}
+
+interface CurrentUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'SUPER_ADMIN' | 'GRIEVANCE_ADMIN' | 'DEPT_HEAD' | 'INVESTIGATOR';
+  departmentId: string | null;
+  department?: {
+    id: string;
+    nameEn: string;
+    nameNp: string;
+    code: string;
+  } | null;
+  _count?: {
+    assignedComplaints: number;
+    actions: number;
+  };
+}
+
+interface NotificationItem {
+  id: string;
+  userId: string | null;
+  complaintId: string | null;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  complaint?: {
+    id: string;
+    trackingId: string;
+    subject: string;
+    status: string;
+    department?: { nameEn: string; code: string };
+  } | null;
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffInSecs = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (diffInSecs < 60) return 'Just now';
+  const diffInMins = Math.floor(diffInSecs / 60);
+  if (diffInMins < 60) return `${diffInMins}m ago`;
+  const diffInHours = Math.floor(diffInMins / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `${diffInDays}d ago`;
+  return date.toLocaleDateString();
 }
 
 export default function AdminDashboardPage() {
   const router = useRouter();
 
+  // Current Logged-in Staff Session
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+
+  // Core Data
   const [stats, setStats] = useState<Stats | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Notifications State
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [deptFilter, setDeptFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
+  const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'ASSIGNED_TO_ME' | 'UNASSIGNED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Active Selected Complaint for Modal
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [modalStatus, setModalStatus] = useState('');
   const [modalPriority, setModalPriority] = useState('');
+  const [modalAssignedToId, setModalAssignedToId] = useState('');
   const [modalActionSummary, setModalActionSummary] = useState('');
   const [modalNote, setModalNote] = useState('');
   const [modalIsPublicNote, setModalIsPublicNote] = useState(true);
@@ -155,7 +242,8 @@ export default function AdminDashboardPage() {
   // Admin User Management Modal State
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminModalTab, setAdminModalTab] = useState<'LIST' | 'FORM'>('LIST');
-  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [adminDeptFilter, setAdminDeptFilter] = useState('ALL');
+  const [adminRoleFilter, setAdminRoleFilter] = useState('ALL');
   const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [savingAdmin, setSavingAdmin] = useState(false);
   const [adminError, setAdminError] = useState('');
@@ -169,6 +257,71 @@ export default function AdminDashboardPage() {
   const [adminFormRole, setAdminFormRole] = useState('GRIEVANCE_ADMIN');
   const [adminFormDeptId, setAdminFormDeptId] = useState('');
 
+  // 1. Fetch Current User Profile
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.success && data.user) {
+        setCurrentUser(data.user);
+        // If department staff, default the department filter to their department
+        if ((data.user.role === 'DEPT_HEAD' || data.user.role === 'INVESTIGATOR') && data.user.departmentId) {
+          setDeptFilter(data.user.departmentId);
+        }
+      } else {
+        router.push('/admin/login');
+      }
+    } catch (err) {
+      console.error('Error fetching current user', err);
+      router.push('/admin/login');
+    }
+  };
+
+  // 2. Fetch Notifications
+  const fetchNotifications = async () => {
+    try {
+      const res = await fetch('/api/admin/notifications');
+      const data = await res.json();
+      if (data.success) {
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (err) {
+      console.error('Error loading notifications', err);
+    }
+  };
+
+  const markNotificationRead = async (notificationId: string) => {
+    try {
+      await fetch('/api/admin/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId }),
+      });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error('Error marking notification read', err);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await fetch('/api/admin/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('Error marking all notifications read', err);
+    }
+  };
+
+  // 3. Fetch Stats
   const fetchStats = async () => {
     try {
       const res = await fetch('/api/admin/stats');
@@ -179,6 +332,7 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 4. Fetch Departments
   const fetchDepartments = async () => {
     try {
       const res = await fetch('/api/departments');
@@ -194,10 +348,35 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 5. Fetch Admin & Staff Users
+  const fetchAdminUsers = async () => {
+    setLoadingAdmins(true);
+    setAdminError('');
+    try {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      if (data.success) {
+        setAdminUsers(data.users);
+      } else {
+        setAdminError(data.message || 'Failed to load administrators');
+      }
+    } catch (err: any) {
+      setAdminError(err.message || 'Error loading administrators');
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
+  // 6. Fetch Complaints
   const fetchComplaints = async () => {
     setLoading(true);
     try {
       let url = `/api/admin/complaints?status=${statusFilter}&departmentId=${deptFilter}&priority=${priorityFilter}`;
+      if (assignedFilter === 'ASSIGNED_TO_ME' && currentUser) {
+        url += `&assignedToId=${currentUser.id}`;
+      } else if (assignedFilter === 'UNASSIGNED') {
+        url += `&assignedToId=UNASSIGNED`;
+      }
       if (searchQuery.trim()) url += `&search=${encodeURIComponent(searchQuery.trim())}`;
 
       const res = await fetch(url);
@@ -210,14 +389,36 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // On Mount
   useEffect(() => {
+    fetchCurrentUser();
     fetchStats();
     fetchDepartments();
+    fetchAdminUsers();
+    fetchNotifications();
+
+    // Close notifications dropdown on outside click
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setShowNotificationsDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Poll Notifications every 30 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      fetchNotifications();
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Refetch complaints on filter changes
   useEffect(() => {
     fetchComplaints();
-  }, [statusFilter, deptFilter, priorityFilter]);
+  }, [statusFilter, deptFilter, priorityFilter, assignedFilter, currentUser]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,9 +429,36 @@ export default function AdminDashboardPage() {
     setSelectedComplaint(c);
     setModalStatus(c.status);
     setModalPriority(c.priority);
+    setModalAssignedToId(c.assignedToId || '');
     setModalActionSummary(c.actionSummary || '');
     setModalNote('');
     setModalIsPublicNote(true);
+  };
+
+  const handleNotificationClick = async (notif: NotificationItem) => {
+    if (!notif.isRead) {
+      await markNotificationRead(notif.id);
+    }
+    setShowNotificationsDropdown(false);
+
+    if (notif.complaint) {
+      // Find the complaint in current list or fetch directly
+      const found = complaints.find((c) => c.id === notif.complaint?.id);
+      if (found) {
+        openActionModal(found);
+      } else {
+        // Set search query and refetch
+        setSearchQuery(notif.complaint.trackingId);
+        try {
+          const res = await fetch(`/api/admin/complaints?search=${encodeURIComponent(notif.complaint.trackingId)}`);
+          const data = await res.json();
+          if (data.success && data.complaints.length > 0) {
+            setComplaints(data.complaints);
+            openActionModal(data.complaints[0]);
+          }
+        } catch (e) {}
+      }
+    }
   };
 
   const handleUpdateComplaint = async (e: React.FormEvent) => {
@@ -245,6 +473,7 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           status: modalStatus,
           priority: modalPriority,
+          assignedToId: modalAssignedToId || null,
           actionSummary: modalActionSummary,
           note: modalNote,
           isPublicNote: modalIsPublicNote,
@@ -257,6 +486,8 @@ export default function AdminDashboardPage() {
       setSelectedComplaint(null);
       fetchComplaints();
       fetchStats();
+      fetchAdminUsers();
+      fetchNotifications();
     } catch (err: any) {
       alert(err.message || 'Failed to update complaint');
     } finally {
@@ -326,31 +557,13 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const fetchAdminUsers = async () => {
-    setLoadingAdmins(true);
-    setAdminError('');
-    try {
-      const res = await fetch('/api/admin/users');
-      const data = await res.json();
-      if (data.success) {
-        setAdminUsers(data.users);
-      } else {
-        setAdminError(data.message || 'Failed to load administrators');
-      }
-    } catch (err: any) {
-      setAdminError(err.message || 'Error loading administrators');
-    } finally {
-      setLoadingAdmins(false);
-    }
-  };
-
   const openCreateAdminModal = () => {
     setEditingAdminId(null);
     setAdminFormName('');
     setAdminFormEmail('');
     setAdminFormPassword('');
-    setAdminFormRole('GRIEVANCE_ADMIN');
-    setAdminFormDeptId('');
+    setAdminFormRole('DEPT_HEAD');
+    setAdminFormDeptId(departments.length > 0 ? departments[0].id : '');
     setAdminError('');
     setAdminSuccess('');
     setAdminModalTab('FORM');
@@ -395,7 +608,7 @@ export default function AdminDashboardPage() {
         });
       } else {
         if (!adminFormPassword.trim()) {
-          throw new Error('Password is required for a new administrator.');
+          throw new Error('Password is required for a new staff / administrator account.');
         }
         res = await fetch('/api/admin/users', {
           method: 'POST',
@@ -409,21 +622,25 @@ export default function AdminDashboardPage() {
         throw new Error(data.message || 'Operation failed');
       }
 
-      setAdminSuccess(data.message || 'Administrator saved successfully!');
+      setAdminSuccess(data.message || 'User saved successfully!');
       fetchAdminUsers();
       setTimeout(() => {
         setAdminModalTab('LIST');
         setAdminSuccess('');
-      }, 800);
+      }, 700);
     } catch (err: any) {
-      setAdminError(err.message || 'Error saving administrator');
+      setAdminError(err.message || 'Error saving user');
     } finally {
       setSavingAdmin(false);
     }
   };
 
   const handleDeleteAdmin = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete administrator "${name}"?`)) {
+    if (currentUser?.id === id) {
+      alert('You cannot delete your own account.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to permanently delete user account "${name}"?`)) {
       return;
     }
     setAdminError('');
@@ -433,11 +650,11 @@ export default function AdminDashboardPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to delete administrator');
+        throw new Error(data.message || 'Failed to delete user');
       }
       fetchAdminUsers();
     } catch (err: any) {
-      setAdminError(err.message || 'Error deleting administrator');
+      setAdminError(err.message || 'Error deleting user');
     }
   };
 
@@ -448,10 +665,12 @@ export default function AdminDashboardPage() {
 
   const exportToCSV = () => {
     if (complaints.length === 0) return;
+
     const headers = [
       'Tracking ID',
       'Status',
       'Priority',
+      'Assigned Officer',
       'Category',
       'Department',
       'Unit',
@@ -468,6 +687,7 @@ export default function AdminDashboardPage() {
       `"${c.trackingId}"`,
       `"${c.status}"`,
       `"${c.priority}"`,
+      `"${c.assignedTo ? c.assignedTo.name : 'Unassigned'}"`,
       `"${c.category}"`,
       `"${c.department.nameEn}"`,
       `"${c.unit ? c.unit.nameEn : 'N/A'}"`,
@@ -485,17 +705,29 @@ export default function AdminDashboardPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Gunaso_Grievances_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `BPKMCH_Gunaso_Grievances_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+  const isCentralAdmin = currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'GRIEVANCE_ADMIN';
+  const isDeptStaff = currentUser?.role === 'DEPT_HEAD' || currentUser?.role === 'INVESTIGATOR';
+
+  // Filtered Admin users in Staff Modal
+  const filteredAdminUsers = adminUsers.filter((u) => {
+    if (adminDeptFilter !== 'ALL' && u.departmentId !== adminDeptFilter) return false;
+    if (adminRoleFilter !== 'ALL' && u.role !== adminRoleFilter) return false;
+    return true;
+  });
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-100">
       {/* ADMIN HEADER */}
       <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+          {/* Hospital Brand & Console Title */}
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-white p-0.5 shadow-md flex items-center justify-center shrink-0">
               <img
@@ -505,32 +737,150 @@ export default function AdminDashboardPage() {
               />
             </div>
             <div>
-              <h1 className="font-bold text-lg text-white">BPKMCH Gunaso Admin Portal</h1>
-              <p className="text-xs text-slate-400">बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल • Grievance Management</p>
+              <div className="flex items-center gap-2">
+                <h1 className="font-bold text-base sm:text-lg text-white">
+                  {isDeptStaff ? `${currentUser?.department?.nameEn || 'Department'} Console` : 'BPKMCH Gunaso Admin Portal'}
+                </h1>
+                {currentUser && (
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      isSuperAdmin
+                        ? 'bg-purple-900/80 text-purple-200 border border-purple-700'
+                        : isCentralAdmin
+                        ? 'bg-blue-900/80 text-blue-200 border border-blue-700'
+                        : 'bg-emerald-900/80 text-emerald-200 border border-emerald-700'
+                    }`}
+                  >
+                    {currentUser.role.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400">
+                बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल •{' '}
+                {currentUser ? `Signed in as ${currentUser.name}` : 'Grievance Management'}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setShowAdminModal(true);
-                setAdminModalTab('LIST');
-                fetchAdminUsers();
-              }}
-              className="px-3.5 py-2 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              <Users className="w-4 h-4" />
-              <span>Manage Admins</span>
-            </button>
+          {/* Action Bar Buttons */}
+          <div className="flex items-center flex-wrap gap-2.5">
+            {/* NOTIFICATIONS BELL */}
+            <div className="relative" ref={notificationsRef}>
+              <button
+                onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+                className="relative p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg transition-colors border border-slate-700 flex items-center justify-center"
+                title="Notifications"
+              >
+                {unreadCount > 0 ? (
+                  <BellRing className="w-4 h-4 text-amber-400 animate-bounce" />
+                ) : (
+                  <Bell className="w-4 h-4" />
+                )}
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-rose-600 text-white font-extrabold text-[10px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center shadow-lg border border-slate-900">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
 
-            <button
-              onClick={() => setShowDeptModal(true)}
-              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Department / Unit</span>
-            </button>
+              {/* Notifications Dropdown Panel */}
+              {showNotificationsDropdown && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 text-slate-900 z-50 overflow-hidden">
+                  <div className="bg-slate-900 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-amber-400" />
+                      <span className="font-bold text-xs uppercase tracking-wider">
+                        Notifications ({unreadCount} new)
+                      </span>
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllNotificationsRead}
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Mark all read</span>
+                      </button>
+                    )}
+                  </div>
 
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-400">
+                        No notifications yet. You are all caught up!
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`p-3.5 hover:bg-slate-50 cursor-pointer transition-colors text-xs flex gap-2.5 items-start ${
+                            !n.isRead ? 'bg-amber-50/60 font-medium' : ''
+                          }`}
+                        >
+                          <div
+                            className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                              !n.isRead ? 'bg-amber-500' : 'bg-transparent'
+                            }`}
+                          />
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-900 text-[11px]">{n.title}</span>
+                              <span className="text-[10px] text-slate-400">{formatTimeAgo(n.createdAt)}</span>
+                            </div>
+                            <p className="text-slate-600 text-[11px] line-clamp-2">{n.message}</p>
+                            {n.complaint && (
+                              <div className="inline-flex items-center gap-1 font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                <span>{n.complaint.trackingId}</span>
+                                <span>• {n.complaint.status}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="bg-slate-50 p-2 text-center border-t border-slate-100">
+                    <button
+                      onClick={() => fetchNotifications()}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 flex items-center justify-center gap-1 mx-auto"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Refresh alerts</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SUPER ADMIN: MANAGE STAFF & ADMINS */}
+            {isSuperAdmin && (
+              <button
+                onClick={() => {
+                  setShowAdminModal(true);
+                  setAdminModalTab('LIST');
+                  fetchAdminUsers();
+                }}
+                className="px-3.5 py-2 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Users className="w-4 h-4" />
+                <span>Manage Users & Staff</span>
+              </button>
+            )}
+
+            {/* CENTRAL ADMIN: ADD DEPT / UNIT */}
+            {isCentralAdmin && (
+              <button
+                onClick={() => setShowDeptModal(true)}
+                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Dept / Unit</span>
+              </button>
+            )}
+
+            {/* CSV EXPORT */}
             <button
               onClick={exportToCSV}
               className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-semibold rounded-lg transition-colors border border-slate-700 flex items-center gap-1.5"
@@ -539,6 +889,7 @@ export default function AdminDashboardPage() {
               <span>Export CSV</span>
             </button>
 
+            {/* LOGOUT */}
             <button
               onClick={handleLogout}
               className="px-3.5 py-2 bg-rose-950/80 hover:bg-rose-900 text-rose-200 text-xs font-semibold rounded-lg transition-colors border border-rose-800 flex items-center gap-1.5"
@@ -591,36 +942,80 @@ export default function AdminDashboardPage() {
 
         {/* FILTERS TOOLBAR */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <h2 className="font-bold text-slate-900 text-base flex items-center gap-2">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
               <Filter className="w-5 h-5 text-emerald-600" />
-              <span>Grievances Inbox & Filter Panel</span>
-            </h2>
+              <h2 className="font-bold text-slate-900 text-base">Grievance Case Inbox & Filters</h2>
+            </div>
 
-            {/* Quick Status Tabs */}
-            <div className="flex flex-wrap gap-1.5 text-xs bg-slate-100 p-1 rounded-xl">
-              {['ALL', 'SUBMITTED', 'UNDER_INVESTIGATION', 'ACTION_TAKEN', 'RESOLVED', 'REJECTED'].map((st) => (
+            {/* Quick Assignment / View Mode Tabs */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
                 <button
-                  key={st}
-                  onClick={() => setStatusFilter(st)}
-                  className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    statusFilter === st
-                      ? 'bg-emerald-700 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                  onClick={() => setAssignedFilter('ALL')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    assignedFilter === 'ALL'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  {st.replace(/_/g, ' ')}
+                  All Cases
                 </button>
-              ))}
+                {currentUser && (
+                  <button
+                    onClick={() => setAssignedFilter('ASSIGNED_TO_ME')}
+                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                      assignedFilter === 'ASSIGNED_TO_ME'
+                        ? 'bg-emerald-700 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>Assigned to Me</span>
+                    {currentUser._count?.assignedComplaints ? (
+                      <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                        {currentUser._count.assignedComplaints}
+                      </span>
+                    ) : null}
+                  </button>
+                )}
+                <button
+                  onClick={() => setAssignedFilter('UNASSIGNED')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    assignedFilter === 'UNASSIGNED'
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Needs Assignment
+                </button>
+              </div>
+
+              {/* Quick Status Filter Tabs */}
+              <div className="flex flex-wrap gap-1 text-xs bg-slate-100 p-1 rounded-xl">
+                {['ALL', 'SUBMITTED', 'UNDER_INVESTIGATION', 'ACTION_TAKEN', 'RESOLVED', 'REJECTED'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setStatusFilter(st)}
+                    className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
+                      statusFilter === st
+                        ? 'bg-emerald-700 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                    }`}
+                  >
+                    {st.replace(/_/g, ' ')}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
+          {/* Secondary Filter Dropdowns & Search */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100">
             {/* Search Input */}
             <form onSubmit={handleSearchSubmit} className="sm:col-span-2 relative">
               <input
                 type="text"
-                placeholder="Search by Tracking ID, subject, staff, patient..."
+                placeholder="Search by Tracking ID, subject, staff, patient phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
@@ -633,12 +1028,12 @@ export default function AdminDashboardPage() {
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 font-semibold"
               >
                 <option value="ALL">All Departments</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.nameEn}
+                    {d.nameEn} ({d.code})
                   </option>
                 ))}
               </select>
@@ -649,7 +1044,7 @@ export default function AdminDashboardPage() {
               <select
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 font-semibold"
               >
                 <option value="ALL">All Priorities</option>
                 <option value="CRITICAL">Critical</option>
@@ -670,8 +1065,9 @@ export default function AdminDashboardPage() {
                   <th className="py-3.5 px-4">Tracking ID</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4">Priority</th>
-                  <th className="py-3.5 px-4">Department & Unit</th>
-                  <th className="py-3.5 px-4">Target Staff</th>
+                  <th className="py-3.5 px-4">Department & Subject</th>
+                  <th className="py-3.5 px-4">Assigned Handler</th>
+                  <th className="py-3.5 px-4">Target Person</th>
                   <th className="py-3.5 px-4">Submitted By</th>
                   <th className="py-3.5 px-4 text-right">Action</th>
                 </tr>
@@ -679,98 +1075,130 @@ export default function AdminDashboardPage() {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={8} className="py-10 text-center text-slate-400">
                       Loading complaints data...
                     </td>
                   </tr>
                 ) : complaints.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={8} className="py-10 text-center text-slate-400">
                       No complaints match the filter criteria.
                     </td>
                   </tr>
                 ) : (
-                  complaints.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-800">
-                        {c.trackingId}
-                      </td>
+                  complaints.map((c) => {
+                    const isAssignedToMe = currentUser && c.assignedToId === currentUser.id;
+                    return (
+                      <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-emerald-800">
+                          {c.trackingId}
+                        </td>
 
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider ${
-                            c.status === 'RESOLVED'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                              : c.status === 'SUBMITTED'
-                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                              : c.status === 'UNDER_INVESTIGATION'
-                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                              : 'bg-purple-100 text-purple-800 border border-purple-300'
-                          }`}
-                        >
-                          {c.status}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4 font-bold">
-                        <span
-                          className={`${
-                            c.priority === 'CRITICAL'
-                              ? 'text-rose-600'
-                              : c.priority === 'HIGH'
-                              ? 'text-amber-600'
-                              : 'text-slate-600'
-                          }`}
-                        >
-                          {c.priority}
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4 max-w-xs">
-                        <div className="font-bold text-slate-900 truncate">{c.subject}</div>
-                        <div className="text-[11px] text-slate-500">
-                          {c.department.nameEn}
-                          {c.unit && <span className="text-emerald-700 font-semibold"> • {c.unit.nameEn}</span>}
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-4 text-slate-700">
-                        {c.targetPersonName ? (
-                          <div>
-                            <span className="font-semibold text-slate-900">{c.targetPersonName}</span>
-                            {c.targetPersonRole && (
-                              <span className="text-slate-400 block text-[10px]">({c.targetPersonRole})</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-slate-400">N/A</span>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        {c.isAnonymous ? (
-                          <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">
-                            Anonymous
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider ${
+                              c.status === 'RESOLVED'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : c.status === 'SUBMITTED'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                : c.status === 'UNDER_INVESTIGATION'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                : 'bg-purple-100 text-purple-800 border border-purple-300'
+                            }`}
+                          >
+                            {c.status.replace(/_/g, ' ')}
                           </span>
-                        ) : (
-                          <div>
-                            <span className="font-semibold text-slate-900">{c.patientName}</span>
-                            <span className="text-slate-400 block text-[10px]">{c.patientPhone}</span>
-                          </div>
-                        )}
-                      </td>
+                        </td>
 
-                      <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => openActionModal(c)}
-                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
-                        >
-                          <span>Review</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                        <td className="py-3.5 px-4 font-bold">
+                          <span
+                            className={`${
+                              c.priority === 'CRITICAL'
+                                ? 'text-rose-600'
+                                : c.priority === 'HIGH'
+                                ? 'text-amber-600'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            {c.priority}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 max-w-xs">
+                          <div className="font-bold text-slate-900 truncate">{c.subject}</div>
+                          <div className="text-[11px] text-slate-500">
+                            {c.department.nameEn}
+                            {c.unit && <span className="text-emerald-700 font-semibold"> • {c.unit.nameEn}</span>}
+                          </div>
+                        </td>
+
+                        {/* Assigned Handler */}
+                        <td className="py-3.5 px-4">
+                          {c.assignedTo ? (
+                            <div className="flex flex-col">
+                              <span
+                                className={`inline-flex items-center gap-1 font-semibold text-[11px] ${
+                                  isAssignedToMe ? 'text-emerald-700 font-bold' : 'text-slate-800'
+                                }`}
+                              >
+                                <User className="w-3 h-3 text-slate-400" />
+                                {c.assignedTo.name}
+                                {isAssignedToMe && (
+                                  <span className="bg-emerald-100 text-emerald-800 text-[9px] px-1 py-0.2 rounded font-bold">
+                                    YOU
+                                  </span>
+                                )}
+                              </span>
+                              <span className="text-[10px] text-slate-400 capitalize">
+                                {c.assignedTo.role.replace(/_/g, ' ').toLowerCase()}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              <AlertCircle className="w-3 h-3" />
+                              Unassigned
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-slate-700">
+                          {c.targetPersonName ? (
+                            <div>
+                              <span className="font-semibold text-slate-900">{c.targetPersonName}</span>
+                              {c.targetPersonRole && (
+                                <span className="text-slate-400 block text-[10px]">({c.targetPersonRole})</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">N/A</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {c.isAnonymous ? (
+                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">
+                              Anonymous
+                            </span>
+                          ) : (
+                            <div>
+                              <span className="font-semibold text-slate-900">{c.patientName}</span>
+                              <span className="text-slate-400 block text-[10px]">{c.patientPhone}</span>
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => openActionModal(c)}
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
+                          >
+                            <span>{isDeptStaff ? 'Update Progress' : 'Review & Assign'}</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -778,7 +1206,7 @@ export default function AdminDashboardPage() {
         </div>
       </main>
 
-      {/* ADMIN USER MANAGEMENT MODAL */}
+      {/* STAFF & ADMINISTRATOR MANAGEMENT MODAL */}
       {showAdminModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl border border-slate-200 max-w-3xl w-full shadow-2xl overflow-hidden space-y-6 my-8">
@@ -787,8 +1215,10 @@ export default function AdminDashboardPage() {
               <div className="flex items-center gap-2.5">
                 <Shield className="w-5 h-5 text-blue-400" />
                 <div>
-                  <h3 className="text-lg font-bold text-white">Administrator Management</h3>
-                  <p className="text-xs text-slate-400">Create, edit, or remove hospital administrative accounts</p>
+                  <h3 className="text-lg font-bold text-white">Staff & Administrator Management</h3>
+                  <p className="text-xs text-slate-400">
+                    Create departmental investigation officers, assign departments, and manage admin credentials
+                  </p>
                 </div>
               </div>
               <button
@@ -800,18 +1230,22 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="px-6 pb-6 space-y-5">
-              {/* Tabs */}
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              {/* Tabs & Search */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => { setAdminModalTab('LIST'); setAdminError(''); setAdminSuccess(''); }}
+                    onClick={() => {
+                      setAdminModalTab('LIST');
+                      setAdminError('');
+                      setAdminSuccess('');
+                    }}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
                       adminModalTab === 'LIST'
                         ? 'bg-blue-700 text-white shadow-sm'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    All Administrators ({adminUsers.length})
+                    All Accounts ({adminUsers.length})
                   </button>
                   <button
                     onClick={openCreateAdminModal}
@@ -822,14 +1256,37 @@ export default function AdminDashboardPage() {
                     }`}
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>+ Add New Admin</span>
+                    <span>+ Create New Staff / Admin</span>
                   </button>
                 </div>
 
-                {adminModalTab === 'FORM' && editingAdminId && (
-                  <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
-                    Editing Mode
-                  </span>
+                {adminModalTab === 'LIST' && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={adminDeptFilter}
+                      onChange={(e) => setAdminDeptFilter(e.target.value)}
+                      className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 font-semibold"
+                    >
+                      <option value="ALL">All Departments</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.nameEn}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={adminRoleFilter}
+                      onChange={(e) => setAdminRoleFilter(e.target.value)}
+                      className="px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-800 font-semibold"
+                    >
+                      <option value="ALL">All Roles</option>
+                      <option value="SUPER_ADMIN">Super Admin</option>
+                      <option value="GRIEVANCE_ADMIN">Grievance Admin</option>
+                      <option value="DEPT_HEAD">Dept Head</option>
+                      <option value="INVESTIGATOR">Investigator</option>
+                    </select>
+                  </div>
                 )}
               </div>
 
@@ -851,9 +1308,9 @@ export default function AdminDashboardPage() {
               {adminModalTab === 'LIST' && (
                 <div className="space-y-3">
                   {loadingAdmins ? (
-                    <div className="p-8 text-center text-xs text-slate-400">Loading administrators...</div>
-                  ) : adminUsers.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-slate-500">No administrators found.</div>
+                    <div className="p-8 text-center text-xs text-slate-400">Loading staff accounts...</div>
+                  ) : filteredAdminUsers.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500">No users match filter criteria.</div>
                   ) : (
                     <div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
                       <table className="w-full text-left text-xs border-collapse">
@@ -861,16 +1318,23 @@ export default function AdminDashboardPage() {
                           <tr>
                             <th className="py-2.5 px-3.5">Name & Email</th>
                             <th className="py-2.5 px-3.5">Role</th>
-                            <th className="py-2.5 px-3.5">Assigned Dept</th>
-                            <th className="py-2.5 px-3.5">Created</th>
+                            <th className="py-2.5 px-3.5">Department</th>
+                            <th className="py-2.5 px-3.5">Assigned Cases</th>
                             <th className="py-2.5 px-3.5 text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {adminUsers.map((u) => (
+                          {filteredAdminUsers.map((u) => (
                             <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
                               <td className="py-3 px-3.5">
-                                <div className="font-bold text-slate-900">{u.name}</div>
+                                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                  <span>{u.name}</span>
+                                  {currentUser?.id === u.id && (
+                                    <span className="text-[9px] bg-slate-200 text-slate-700 px-1 py-0.2 rounded font-bold">
+                                      YOU
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-[11px] text-slate-500 font-mono">{u.email}</div>
                               </td>
                               <td className="py-3 px-3.5">
@@ -885,29 +1349,42 @@ export default function AdminDashboardPage() {
                                       : 'bg-amber-100 text-amber-800 border border-amber-200'
                                   }`}
                                 >
-                                  {u.role.replace('_', ' ')}
+                                  {u.role.replace(/_/g, ' ')}
                                 </span>
                               </td>
                               <td className="py-3 px-3.5 text-slate-600">
-                                {u.department ? u.department.nameEn : <span className="text-slate-400 italic">Hospital-wide</span>}
+                                {u.department ? (
+                                  <span className="font-semibold text-slate-800">
+                                    {u.department.nameEn} ({u.department.code})
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 italic">Hospital-wide</span>
+                                )}
                               </td>
-                              <td className="py-3 px-3.5 text-slate-400 text-[11px]">
-                                {new Date(u.createdAt).toLocaleDateString()}
+                              <td className="py-3 px-3.5">
+                                <span className="bg-slate-100 text-slate-800 font-mono font-bold px-2 py-0.5 rounded text-[11px] border border-slate-200">
+                                  {u._count?.assignedComplaints || 0} active
+                                </span>
                               </td>
                               <td className="py-3 px-3.5 text-right space-x-1.5">
                                 <button
                                   type="button"
                                   onClick={() => openEditAdminModal(u)}
                                   className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
-                                  title="Edit Admin"
+                                  title="Edit Staff Member"
                                 >
                                   <Edit2 className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   type="button"
+                                  disabled={currentUser?.id === u.id}
                                   onClick={() => handleDeleteAdmin(u.id, u.name)}
-                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors"
-                                  title="Delete Admin"
+                                  className={`p-1.5 rounded-lg transition-colors ${
+                                    currentUser?.id === u.id
+                                      ? 'opacity-30 cursor-not-allowed bg-slate-100 text-slate-400'
+                                      : 'bg-rose-50 hover:bg-rose-100 text-rose-700'
+                                  }`}
+                                  title="Delete Staff Member"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -941,12 +1418,12 @@ export default function AdminDashboardPage() {
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Email Address *
+                        Email Address (Used for Login) *
                       </label>
                       <input
                         type="email"
                         required
-                        placeholder="e.g. ramesh@hospital.gov.np"
+                        placeholder="e.g. ramesh.radiology@hospital.gov.np"
                         value={adminFormEmail}
                         onChange={(e) => setAdminFormEmail(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
@@ -957,12 +1434,12 @@ export default function AdminDashboardPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Password {editingAdminId ? '(Leave blank to keep existing)' : '*'}
+                        Password {editingAdminId ? '(Leave blank to keep current)' : '*'}
                       </label>
                       <input
                         type="password"
                         required={!editingAdminId}
-                        placeholder={editingAdminId ? 'Enter new password to change' : 'Min 6 characters'}
+                        placeholder={editingAdminId ? 'Enter new password to update' : 'Min 6 characters'}
                         value={adminFormPassword}
                         onChange={(e) => setAdminFormPassword(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
@@ -971,31 +1448,31 @@ export default function AdminDashboardPage() {
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Administrative Role *
+                        Role & Permissions *
                       </label>
                       <select
                         value={adminFormRole}
                         onChange={(e) => setAdminFormRole(e.target.value)}
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500"
                       >
-                        <option value="SUPER_ADMIN">SUPER_ADMIN (Full Hospital Control)</option>
-                        <option value="GRIEVANCE_ADMIN">GRIEVANCE_ADMIN (Review Committee Officer)</option>
-                        <option value="DEPT_HEAD">DEPT_HEAD (Department Head)</option>
-                        <option value="INVESTIGATOR">INVESTIGATOR (Internal Inquiry)</option>
+                        <option value="DEPT_HEAD">DEPT_HEAD (Department Head / In-charge)</option>
+                        <option value="INVESTIGATOR">INVESTIGATOR (Department Investigation Staff)</option>
+                        <option value="GRIEVANCE_ADMIN">GRIEVANCE_ADMIN (Central Review Committee)</option>
+                        <option value="SUPER_ADMIN">SUPER_ADMIN (Full System Administrator)</option>
                       </select>
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Assigned Department (Optional, for Department Heads)
+                      Assigned Department {adminFormRole === 'DEPT_HEAD' || adminFormRole === 'INVESTIGATOR' ? '(Required for Department Staff)' : '(Optional)'}
                     </label>
                     <select
                       value={adminFormDeptId}
                       onChange={(e) => setAdminFormDeptId(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 font-semibold focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">Hospital-wide (All Departments)</option>
+                      <option value="">Hospital-wide / Central Administration</option>
                       {departments.map((d) => (
                         <option key={d.id} value={d.id}>
                           {d.nameEn} ({d.code})
@@ -1017,7 +1494,7 @@ export default function AdminDashboardPage() {
                       disabled={savingAdmin}
                       className="px-6 py-2 bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
                     >
-                      {savingAdmin ? 'Saving...' : editingAdminId ? 'Save Changes' : 'Create Administrator'}
+                      {savingAdmin ? 'Saving...' : editingAdminId ? 'Save Changes' : 'Create Staff Account'}
                     </button>
                   </div>
                 </form>
@@ -1244,10 +1721,13 @@ export default function AdminDashboardPage() {
             <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
               <div>
                 <span className="text-xs text-emerald-400 font-mono font-bold uppercase">
-                  Grievance Action Terminal
+                  Grievance Action & Investigation Terminal
                 </span>
-                <h3 className="text-xl font-bold font-mono text-white">
-                  {selectedComplaint.trackingId}
+                <h3 className="text-xl font-bold font-mono text-white flex items-center gap-2">
+                  <span>{selectedComplaint.trackingId}</span>
+                  <span className="text-xs font-normal text-slate-400">
+                    (PIN: <span className="font-mono text-amber-300">{selectedComplaint.pin}</span>)
+                  </span>
                 </h3>
               </div>
               <button
@@ -1259,26 +1739,71 @@ export default function AdminDashboardPage() {
             </div>
 
             <form onSubmit={handleUpdateComplaint} className="p-6 space-y-6">
+              {/* COMPLAINT DETAILS SUMMARY */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
-                <div className="flex items-center justify-between text-slate-500">
-                  <span>Category: <strong>{selectedComplaint.category}</strong></span>
-                  <span>Dept: <strong>{selectedComplaint.department.nameEn}</strong> {selectedComplaint.unit && `(${selectedComplaint.unit.nameEn})`}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-slate-500">
+                  <span>
+                    Category: <strong className="text-slate-800">{selectedComplaint.category}</strong>
+                  </span>
+                  <span>
+                    Department: <strong className="text-slate-800">{selectedComplaint.department.nameEn}</strong>{' '}
+                    {selectedComplaint.unit && `(${selectedComplaint.unit.nameEn})`}
+                  </span>
                 </div>
 
-                <div className="text-sm font-bold text-slate-900">
-                  {selectedComplaint.subject}
-                </div>
+                <div className="text-sm font-bold text-slate-900">{selectedComplaint.subject}</div>
 
                 <div className="text-slate-700 bg-white p-3 rounded-lg border border-slate-200 max-h-36 overflow-y-auto whitespace-pre-wrap">
                   {selectedComplaint.description}
                 </div>
 
-                <div className="flex items-center justify-between text-slate-500 text-[11px] pt-1">
-                  <span>Location: {selectedComplaint.location}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-slate-500 text-[11px] pt-1">
+                  <span>
+                    Location: <strong className="text-slate-700">{selectedComplaint.location}</strong>
+                  </span>
+                  <span>
+                    Patient:{' '}
+                    <strong className="text-slate-700">
+                      {selectedComplaint.isAnonymous
+                        ? 'Anonymous'
+                        : `${selectedComplaint.patientName || 'N/A'} (${selectedComplaint.patientPhone || 'N/A'})`}
+                    </strong>
+                  </span>
                   <span>Submitted: {new Date(selectedComplaint.createdAt).toLocaleString()}</span>
                 </div>
               </div>
 
+              {/* ACTION HISTORY AUDIT LOG */}
+              {selectedComplaint.actions && selectedComplaint.actions.length > 0 && (
+                <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/70 space-y-2 text-xs">
+                  <div className="font-bold text-slate-800 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Case Timeline & Investigation Activity ({selectedComplaint.actions.length})</span>
+                  </div>
+                  <div className="max-h-36 overflow-y-auto space-y-2 divide-y divide-slate-100">
+                    {selectedComplaint.actions.map((act) => (
+                      <div key={act.id} className="pt-2 first:pt-0 space-y-0.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <div className="flex items-center gap-1.5 font-semibold text-slate-900">
+                            <span className="font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 text-[10px]">
+                              {act.actionType}
+                            </span>
+                            {act.actor && (
+                              <span className="text-slate-600">
+                                by <span className="font-bold text-slate-900">{act.actor.name}</span> ({act.actor.role.replace('_', ' ')})
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400">{formatTimeAgo(act.createdAt)}</span>
+                        </div>
+                        <p className="text-slate-700 text-[11px] pl-1">{act.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* STATUS & PRIORITY DROPDOWNS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-800 mb-1">
@@ -1287,14 +1812,14 @@ export default function AdminDashboardPage() {
                   <select
                     value={modalStatus}
                     onChange={(e) => setModalStatus(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="SUBMITTED">SUBMITTED (New)</option>
-                    <option value="UNDER_INVESTIGATION">UNDER_INVESTIGATION</option>
-                    <option value="ACTION_TAKEN">ACTION_TAKEN (Corrective Action Logged)</option>
-                    <option value="RESOLVED">RESOLVED (Completed)</option>
+                    <option value="SUBMITTED">SUBMITTED (New Grievance)</option>
+                    <option value="UNDER_INVESTIGATION">UNDER_INVESTIGATION (Inquiry in Progress)</option>
+                    <option value="ACTION_TAKEN">ACTION_TAKEN (Corrective Steps Logged)</option>
+                    <option value="RESOLVED">RESOLVED (Complaint Closed)</option>
                     <option value="REJECTED">REJECTED (Invalid / Duplicate)</option>
-                    <option value="ESCALATED">ESCALATED (Medical Director)</option>
+                    <option value="ESCALATED">ESCALATED (Medical Director Review)</option>
                   </select>
                 </div>
 
@@ -1305,7 +1830,7 @@ export default function AdminDashboardPage() {
                   <select
                     value={modalPriority}
                     onChange={(e) => setModalPriority(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="LOW">Low</option>
                     <option value="MEDIUM">Medium</option>
@@ -1315,29 +1840,74 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
 
+              {/* ASSIGN TO DEPARTMENT STAFF / INVESTIGATION OFFICER */}
+              <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-4 space-y-2">
+                <label className="block text-xs font-bold text-slate-900 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-blue-900">
+                    <UserCheck className="w-4 h-4 text-blue-700" />
+                    <span>Assign to Department Officer / Handler</span>
+                  </span>
+                  {selectedComplaint.assignedTo && (
+                    <span className="text-[10px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded font-bold">
+                      Currently: {selectedComplaint.assignedTo.name}
+                    </span>
+                  )}
+                </label>
+                <select
+                  value={modalAssignedToId}
+                  onChange={(e) => setModalAssignedToId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-blue-300 rounded-lg text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Unassigned (No Officer Assigned) --</option>
+                  <optgroup label={`Department Match (${selectedComplaint.department.nameEn})`}>
+                    {adminUsers
+                      .filter((u) => u.departmentId === selectedComplaint.departmentId)
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          ⭐ {u.name} — {u.role.replace(/_/g, ' ')} ({u._count?.assignedComplaints || 0} active cases)
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="Other Hospital Staff & Admins">
+                    {adminUsers
+                      .filter((u) => u.departmentId !== selectedComplaint.departmentId)
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} — {u.department ? u.department.nameEn : 'Hospital Admin'} ({u.role.replace(/_/g, ' ')})
+                        </option>
+                      ))}
+                  </optgroup>
+                </select>
+                <p className="text-[11px] text-blue-700">
+                  Assigning an officer will alert them in their dashboard and trigger an SMS / WhatsApp status update to the patient.
+                </p>
+              </div>
+
+              {/* RESOLUTION SUMMARY (VISIBLE TO PATIENT) */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
                   Public Resolution Summary (Visible to Patient on Tracking Portal)
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Explain findings and administrative action taken (e.g. Duty nurse counseled, refund issued...)"
+                  placeholder="Explain findings and administrative/departmental action taken (e.g. Duty doctor counseled, pharmacy stock replenished, refund processed...)"
                   value={modalActionSummary}
                   onChange={(e) => setModalActionSummary(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
+              {/* LOG AUDIT ENTRY / NOTE */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1">
-                  Log Audit Entry / Note
+                  Log Audit Entry / Progress Note
                 </label>
                 <input
                   type="text"
-                  placeholder="Internal or public note (e.g. Spoke with Dr. Karki on Oct 7)"
+                  placeholder="Note on investigation progress (e.g. Interviewed night-shift nurse, verified billing slip)"
                   value={modalNote}
                   onChange={(e) => setModalNote(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900"
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
                 />
                 <div className="flex items-center gap-2 mt-2">
                   <input
@@ -1348,11 +1918,12 @@ export default function AdminDashboardPage() {
                     className="rounded text-emerald-600 focus:ring-emerald-500"
                   />
                   <label htmlFor="isPublicNote" className="text-xs text-slate-600">
-                    Make this note public to the patient on tracking portal
+                    Make this note visible to the patient on the tracking portal
                   </label>
                 </div>
               </div>
 
+              {/* MODAL ACTIONS */}
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
                 <button
                   type="button"
@@ -1365,10 +1936,10 @@ export default function AdminDashboardPage() {
                 <button
                   type="submit"
                   disabled={updating}
-                  className="px-6 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                  className="px-6 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-2 disabled:opacity-50 shadow-sm"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  <span>{updating ? 'Saving Changes...' : 'Save & Publish Updates'}</span>
+                  <span>{updating ? 'Saving & Notifying...' : 'Save & Publish Updates'}</span>
                 </button>
               </div>
             </form>

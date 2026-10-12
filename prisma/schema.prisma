@@ -61,6 +61,7 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
   actions      ComplaintAction[]
+  assignedComplaints Complaint[] @relation("AssignedComplaints")
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
@@ -131,9 +132,12 @@ model Complaint {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
 
-  actions     ComplaintAction[]
-  attachments Attachment[]
-  feedback    Feedback?
+  assignedToId     String?
+  assignedTo       User?        @relation("AssignedComplaints", fields: [assignedToId], references: [id])
+  actions          ComplaintAction[]
+  attachments      Attachment[]
+  feedback         Feedback?
+  notifications    Notification[]
 }
 
 model ComplaintAction {
@@ -167,4 +171,16 @@ model Feedback {
   rating      Int
   comments    String?
   createdAt   DateTime  @default(now())
+}
+
+model Notification {
+  id          String     @id @default(cuid())
+  userId      String?    // null = for central grievance admins, or specific user ID
+  complaintId String?
+  complaint   Complaint? @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  type        String     @default("DEPT_UPDATE") // "DEPT_UPDATE", "ASSIGNMENT", "RESOLVED"
+  isRead      Boolean    @default(false)
+  createdAt   DateTime   @default(now())
 }
