@@ -45,6 +45,7 @@ export async function GET(
         messages: {
           orderBy: { createdAt: 'asc' },
         },
+        capa: true,
       },
     });
 

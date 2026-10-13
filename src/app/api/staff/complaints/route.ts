@@ -150,6 +150,7 @@ export async function GET(req: Request) {
           orderBy: { createdAt: 'desc' },
           take: 5,
         },
+        capa: true,
         _count: {
           select: {
             messages: true,

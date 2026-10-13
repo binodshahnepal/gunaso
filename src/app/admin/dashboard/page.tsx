@@ -45,6 +45,7 @@ import {
   Activity,
   Timer,
   Award,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   showSuccessAlert,
@@ -123,6 +124,20 @@ interface Complaint {
   hoursOverdue?: number;
   hoursRemaining?: number;
   messages?: ComplaintMessage[];
+  capa?: CapaRecord | null;
+}
+
+interface CapaRecord {
+  id: string;
+  rootCauseCategory: string;
+  rootCauseAnalysis: string;
+  correctiveAction: string;
+  preventiveAction: string;
+  status: string;
+  targetReviewDate?: string | null;
+  qaOfficerName?: string | null;
+  qaNotes?: string | null;
+  createdAt: string;
 }
 
 interface ComplaintMessage {
@@ -299,12 +314,24 @@ export default function AdminDashboardPage() {
   const [modalIsPublicNote, setModalIsPublicNote] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  // Two-Way Messaging in Modal
-  const [modalActiveTab, setModalActiveTab] = useState<'ACTION' | 'MESSAGES'>('ACTION');
+  // Two-Way Messaging & CAPA in Modal
+  const [modalActiveTab, setModalActiveTab] = useState<'ACTION' | 'MESSAGES' | 'CAPA'>('ACTION');
   const [complaintMessages, setComplaintMessages] = useState<ComplaintMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [adminMessageText, setAdminMessageText] = useState('');
   const [sendingAdminMessage, setSendingAdminMessage] = useState(false);
+
+  // CAPA Form State
+  const [capaRootCauseCategory, setCapaRootCauseCategory] = useState('PROCESS_DEFECT');
+  const [capaRootCauseAnalysis, setCapaRootCauseAnalysis] = useState('');
+  const [capaCorrectiveAction, setCapaCorrectiveAction] = useState('');
+  const [capaPreventiveAction, setCapaPreventiveAction] = useState('');
+  const [capaStatus, setCapaStatus] = useState('PENDING_QA_REVIEW');
+  const [capaTargetReviewDate, setCapaTargetReviewDate] = useState('');
+  const [capaOfficerName, setCapaOfficerName] = useState('');
+  const [capaNotes, setCapaNotes] = useState('');
+  const [loadingCapa, setLoadingCapa] = useState(false);
+  const [savingCapa, setSavingCapa] = useState(false);
 
 
   // Department & Unit Creator Modal State
@@ -575,6 +602,80 @@ export default function AdminDashboardPage() {
     setComplaintMessages([]);
     setAdminMessageText('');
     fetchComplaintMessages(c.id);
+    fetchCapaForComplaint(c.id);
+  };
+
+  const fetchCapaForComplaint = async (complaintId: string) => {
+    setLoadingCapa(true);
+    try {
+      const res = await fetch(`/api/admin/complaints/${complaintId}/capa`);
+      const data = await res.json();
+      if (data.success && data.capa) {
+        setCapaRootCauseCategory(data.capa.rootCauseCategory || 'PROCESS_DEFECT');
+        setCapaRootCauseAnalysis(data.capa.rootCauseAnalysis || '');
+        setCapaCorrectiveAction(data.capa.correctiveAction || '');
+        setCapaPreventiveAction(data.capa.preventiveAction || '');
+        setCapaStatus(data.capa.status || 'PENDING_QA_REVIEW');
+        setCapaTargetReviewDate(data.capa.targetReviewDate ? data.capa.targetReviewDate.split('T')[0] : '');
+        setCapaOfficerName(data.capa.qaOfficerName || '');
+        setCapaNotes(data.capa.qaNotes || '');
+      } else {
+        setCapaRootCauseCategory('PROCESS_DEFECT');
+        setCapaRootCauseAnalysis('');
+        setCapaCorrectiveAction('');
+        setCapaPreventiveAction('');
+        setCapaStatus('PENDING_QA_REVIEW');
+        setCapaTargetReviewDate('');
+        setCapaOfficerName(currentUser?.name || '');
+        setCapaNotes('');
+      }
+    } catch (err) {
+      console.error('Failed to fetch CAPA record', err);
+    } finally {
+      setLoadingCapa(false);
+    }
+  };
+
+  const handleSaveCapa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedComplaint) return;
+    if (!capaRootCauseAnalysis.trim() || !capaCorrectiveAction.trim() || !capaPreventiveAction.trim()) {
+      showErrorAlert('Missing Required Fields', 'Please complete the Root Cause Analysis, Corrective Action, and Preventive Action fields.');
+      return;
+    }
+
+    setSavingCapa(true);
+    try {
+      const res = await fetch(`/api/admin/complaints/${selectedComplaint.id}/capa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rootCauseCategory: capaRootCauseCategory,
+          rootCauseAnalysis: capaRootCauseAnalysis.trim(),
+          correctiveAction: capaCorrectiveAction.trim(),
+          preventiveAction: capaPreventiveAction.trim(),
+          status: capaStatus,
+          targetReviewDate: capaTargetReviewDate || null,
+          qaOfficerName: capaOfficerName.trim() || currentUser?.name || 'Quality Assurance Officer',
+          qaNotes: capaNotes.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showSuccessAlert(
+          'CAPA Record Documented & Audited / क्यापा सुरक्षित भयो',
+          `Corrective & Preventive Action for case ${selectedComplaint.trackingId} recorded under hospital quality standards.`
+        );
+        fetchComplaints();
+      } else {
+        showErrorAlert('Failed to Save CAPA', data.message);
+      }
+    } catch (err: any) {
+      showErrorAlert('Error Saving CAPA', err.message || 'Server error while saving CAPA');
+    } finally {
+      setSavingCapa(false);
+    }
   };
 
   const handleSendAdminMessage = async (e: React.FormEvent) => {
@@ -2423,6 +2524,23 @@ export default function AdminDashboardPage() {
                   </span>
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => setModalActiveTab('CAPA')}
+                className={`pb-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+                  modalActiveTab === 'CAPA'
+                    ? 'border-[#27548b] text-[#27548b]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Quality & CAPA Audit</span>
+                {selectedComplaint.capa && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 font-bold">
+                    Audited
+                  </span>
+                )}
+              </button>
             </div>
 
             {modalActiveTab === 'ACTION' ? (
@@ -2631,7 +2749,7 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
               </form>
-            ) : (
+            ) : modalActiveTab === 'MESSAGES' ? (
               <div className="p-6 space-y-6">
                 {/* MESSAGES THREAD HEADER */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
@@ -2766,6 +2884,174 @@ export default function AdminDashboardPage() {
                   </div>
                 </form>
               </div>
+            ) : (
+              /* QUALITY & CAPA AUDIT TAB */
+              <form onSubmit={handleSaveCapa} className="p-6 space-y-5">
+                {/* Header Banner */}
+                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-5 h-5 text-[#27548b]" />
+                      <h4 className="font-bold text-slate-900 text-sm">
+                        Corrective & Preventive Action (CAPA) Governance Desk
+                      </h4>
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Document the formal Root Cause Analysis (RCA) and systemic hospital-wide quality measures.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-500">Status:</span>
+                    <select
+                      value={capaStatus}
+                      onChange={(e) => setCapaStatus(e.target.value)}
+                      className="text-xs font-bold px-3 py-1.5 rounded-xl border border-slate-300 bg-white shadow-xs focus:ring-2 focus:ring-[#27548b]"
+                    >
+                      <option value="DRAFT">Draft / प्रारम्भिक</option>
+                      <option value="PENDING_QA_REVIEW">Pending QA Review / समीक्षा बाँकी</option>
+                      <option value="APPROVED_BY_QA">Approved by QA Committee / स्वीकृत</option>
+                      <option value="CLOSED">Closed & Verified / बन्द तथा प्रमाणीकृत</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 1. Root Cause Category */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Root Cause Category / मुख्य कारण वर्ग <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={capaRootCauseCategory}
+                      onChange={(e) => setCapaRootCauseCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-[#27548b] focus:bg-white"
+                    >
+                      <option value="PROCESS_DEFECT">📋 Process / SOP / Protocol Defect</option>
+                      <option value="COMMUNICATION_GAP">👥 Communication Breakdown / Attitude Gap</option>
+                      <option value="EQUIPMENT_FAILURE">⚙️ Equipment Downtime / IT System Failure</option>
+                      <option value="SUPPLY_SHORTAGE">💊 Supply Shortage / Drug Stockout</option>
+                      <option value="STAFFING_WORKLOAD">⏳ High Patient-to-Staff Ratio / Fatigue</option>
+                      <option value="INFRASTRUCTURE">🏢 Infrastructure / Cleanliness / Facilities</option>
+                      <option value="HUMAN_ERROR">⚠️ Accidental Human Discrepancy / Slip</option>
+                      <option value="OTHER">📁 Other Systemic Factor</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Assigned QA Officer / गुणस्तर अधिकृत
+                    </label>
+                    <input
+                      type="text"
+                      value={capaOfficerName}
+                      onChange={(e) => setCapaOfficerName(e.target.value)}
+                      placeholder="e.g., Dr. Quality Lead / Clinical Auditor"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#27548b] focus:bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Root Cause Analysis (Why-Why Analysis) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    1. Root Cause Analysis (Why-Why Diagnostic Finding) <span className="text-rose-500">*</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-1.5">
+                    Detailed diagnostic explanation of why this grievance occurred (underlying systemic, communication, or clinical gap).
+                  </p>
+                  <textarea
+                    rows={3}
+                    required
+                    value={capaRootCauseAnalysis}
+                    onChange={(e) => setCapaRootCauseAnalysis(e.target.value)}
+                    placeholder="e.g., Investigation confirmed that during morning shift changeover, OPD pharmacy barcode scanner experienced an intermittent network dropout..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#27548b] focus:bg-white"
+                  />
+                </div>
+
+                {/* 3. Corrective Action (Immediate Remedy) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    2. Corrective Action (Immediate Patient Remedy) <span className="text-rose-500">*</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-1.5">
+                    What immediate remedial step was taken to resolve the grievance for the affected complainant?
+                  </p>
+                  <textarea
+                    rows={2}
+                    required
+                    value={capaCorrectiveAction}
+                    onChange={(e) => setCapaCorrectiveAction(e.target.value)}
+                    placeholder="e.g., Complainant was provided with the corrected invoice, refunded excess charge, and received the prescribed medication immediately..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#27548b] focus:bg-white"
+                  />
+                </div>
+
+                {/* 4. Preventive Action (Hospital-Wide Change) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    3. Preventive Action (Hospital-Wide Systemic Quality Safeguard) <span className="text-rose-500">*</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-1.5">
+                    What systemic change, SOP update, or preventive training has been instituted hospital-wide to prevent recurrence?
+                  </p>
+                  <textarea
+                    rows={3}
+                    required
+                    value={capaPreventiveAction}
+                    onChange={(e) => setCapaPreventiveAction(e.target.value)}
+                    placeholder="e.g., Instituted a dual-verification checklist at OPD pharmacy counter; upgraded network access point in Room 14; conducted shift-handover protocol training..."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#27548b] focus:bg-white"
+                  />
+                </div>
+
+                {/* 5. Target Review Date & Committee Notes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Effectiveness Review Target Date
+                    </label>
+                    <input
+                      type="date"
+                      value={capaTargetReviewDate}
+                      onChange={(e) => setCapaTargetReviewDate(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#27548b]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Quality Committee Audit Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={capaNotes}
+                      onChange={(e) => setCapaNotes(e.target.value)}
+                      placeholder="Optional remarks from Medical Superintendent or QA audit..."
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-[#27548b]"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setModalActiveTab('ACTION')}
+                    className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold text-xs rounded-xl hover:bg-slate-50"
+                  >
+                    Back to Action Form
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingCapa}
+                    className="px-6 py-2.5 bg-[#27548b] hover:bg-blue-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{savingCapa ? 'Saving & Auditing...' : 'Save & Audit CAPA Record'}</span>
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>

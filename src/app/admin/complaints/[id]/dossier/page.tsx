@@ -96,11 +96,25 @@ interface Complaint {
   actions: ActionLog[];
   attachments?: Attachment[];
   messages?: ComplaintMessage[];
-  feedback?: {
+    feedback?: {
     rating: number;
     comments: string | null;
     createdAt: string;
   } | null;
+  capa?: CapaRecord | null;
+}
+
+interface CapaRecord {
+  id: string;
+  rootCauseCategory: string;
+  rootCauseAnalysis: string;
+  correctiveAction: string;
+  preventiveAction: string;
+  status: string;
+  targetReviewDate?: string | null;
+  qaOfficerName?: string | null;
+  qaNotes?: string | null;
+  createdAt: string;
 }
 
 interface ComplaintMessage {
@@ -653,11 +667,106 @@ export default function ComplaintDossierPage() {
           </div>
 
           {/* ========================================================= */}
-          {/* 9. SECTION 7: FINAL DETERMINATION & CORRECTIVE ACTIONS */}
+          {/* 9. SECTION 7: CLINICAL GOVERNANCE, ROOT CAUSE ANALYSIS (RCA) & CAPA */}
+          {/* ========================================================= */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-300 pb-1 flex items-center justify-between">
+              <span>SECTION 7: CLINICAL GOVERNANCE, ROOT CAUSE ANALYSIS (RCA) & CAPA AUDIT</span>
+              <span className="text-[10px] text-slate-500 font-normal">Quality Improvement Standard</span>
+            </h3>
+
+            {complaint.capa ? (
+              <div className="border border-slate-300 rounded-xl p-4 bg-blue-50/30 space-y-3 text-xs">
+                {/* Header Row: Root Cause Tag & QA Verification Status */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-600 text-[11px] uppercase">RCA Category:</span>
+                    <span className="px-2.5 py-0.5 rounded-full font-bold text-[11px] bg-indigo-100 text-indigo-900 border border-indigo-200">
+                      🏷️ {complaint.capa.rootCauseCategory.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-[11px]">QA Status:</span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                        complaint.capa.status === 'APPROVED_BY_QA' || complaint.capa.status === 'CLOSED'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : complaint.capa.status === 'PENDING_QA_REVIEW'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {complaint.capa.status.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Root Cause Narrative */}
+                <div>
+                  <span className="font-bold text-slate-800 text-[11px] uppercase block mb-1">
+                    1. Root Cause Analysis (Why-Why Diagnostic Finding):
+                  </span>
+                  <div className="bg-white p-3 rounded-lg border border-slate-200 text-slate-800 leading-relaxed font-sans">
+                    {complaint.capa.rootCauseAnalysis}
+                  </div>
+                </div>
+
+                {/* Corrective Action (Immediate Remedy) */}
+                <div>
+                  <span className="font-bold text-slate-800 text-[11px] uppercase block mb-1">
+                    2. Corrective Action Taken (Immediate Complainant Redressal):
+                  </span>
+                  <div className="bg-white p-3 rounded-lg border border-emerald-200 text-slate-900 leading-relaxed font-sans">
+                    {complaint.capa.correctiveAction}
+                  </div>
+                </div>
+
+                {/* Preventive Action (Systemic Hospital Protocol) */}
+                <div>
+                  <span className="font-bold text-slate-800 text-[11px] uppercase block mb-1">
+                    3. Preventive Action Instituted (Hospital-Wide Systemic Quality Safeguard):
+                  </span>
+                  <div className="bg-white p-3 rounded-lg border border-blue-200 text-slate-900 leading-relaxed font-sans">
+                    {complaint.capa.preventiveAction}
+                  </div>
+                </div>
+
+                {/* QA Verification Meta Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px] text-slate-600 bg-white p-2.5 rounded-lg border border-slate-200">
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Audited By:</span>
+                    <strong>{complaint.capa.qaOfficerName || 'Hospital Quality Committee'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Target Review Date:</span>
+                    <strong>
+                      {complaint.capa.targetReviewDate
+                        ? new Date(complaint.capa.targetReviewDate).toLocaleDateString()
+                        : 'Routine Quarterly Audit'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px]">Audit Log Timestamp:</span>
+                    <span className="font-mono text-slate-600">
+                      {new Date(complaint.capa.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="border border-slate-200 p-3 text-center text-xs text-slate-500 italic rounded-lg bg-slate-50/50">
+                CAPA audit record pending documentation by Quality Improvement Officer.
+              </div>
+            )}
+          </div>
+
+          {/* ========================================================= */}
+          {/* 10. SECTION 8: FINAL DETERMINATION & CORRECTIVE ACTIONS */}
           {/* ========================================================= */}
           <div className="space-y-2">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-300 pb-1">
-              SECTION 7: FINAL REDRESSAL DETERMINATION & CORRECTIVE ACTIONS
+              SECTION 8: FINAL REDRESSAL DETERMINATION & PATIENT RESOLUTION
             </h3>
 
             <div className="border border-slate-300 rounded-xl p-4 bg-emerald-50/40 space-y-3 text-xs">
@@ -711,11 +820,11 @@ export default function ComplaintDossierPage() {
           </div>
 
           {/* ========================================================= */}
-          {/* 10. SECTION 8: OFFICIAL COMMITTEE SIGN-OFF & ATTESTATION */}
+          {/* 11. SECTION 9: OFFICIAL COMMITTEE SIGN-OFF & ATTESTATION */}
           {/* ========================================================= */}
           <div className="pt-4 space-y-4 break-inside-avoid">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b-2 border-slate-900 pb-1">
-              SECTION 8: OFFICIAL COMMITTEE ATTESTATION & SIGN-OFF
+              SECTION 9: OFFICIAL COMMITTEE ATTESTATION & SIGN-OFF
             </h3>
 
             <p className="text-[10px] text-slate-500 leading-normal italic">

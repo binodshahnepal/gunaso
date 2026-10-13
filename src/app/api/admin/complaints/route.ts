@@ -78,6 +78,7 @@ export async function GET(req: Request) {
           },
         },
         feedback: true,
+        capa: true,
       },
     });
 
