@@ -4,6 +4,67 @@ import { Status, Priority } from '@prisma/client';
 import { sendWhatsAppAlert } from '@/lib/whatsapp';
 import { cookies } from 'next/headers';
 
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const complaint = await prisma.complaint.findFirst({
+      where: {
+        OR: [{ id }, { trackingId: id }],
+      },
+      include: {
+        department: true,
+        unit: true,
+        assignedTo: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            department: true,
+          },
+        },
+        actions: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            actor: {
+              select: {
+                id: true,
+                name: true,
+                role: true,
+                email: true,
+              },
+            },
+          },
+        },
+        feedback: true,
+        attachments: true,
+      },
+    });
+
+    if (!complaint) {
+      return NextResponse.json(
+        { success: false, message: 'Complaint not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      complaint,
+    });
+  } catch (error: any) {
+    console.error('Error fetching complaint details:', error);
+    return NextResponse.json(
+      { success: false, message: error.message || 'Failed to fetch complaint' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }

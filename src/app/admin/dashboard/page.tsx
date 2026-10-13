@@ -38,6 +38,7 @@ import {
   Eye,
   MessageSquare,
   AlertCircle,
+  Printer,
 } from 'lucide-react';
 
 interface Unit {
@@ -1188,13 +1189,24 @@ export default function AdminDashboardPage() {
                         </td>
 
                         <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => openActionModal(c)}
-                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
-                          >
-                            <span>{isDeptStaff ? 'Update Progress' : 'Review & Assign'}</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Link
+                              href={`/admin/complaints/${c.id}/dossier`}
+                              target="_blank"
+                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg transition-colors border border-slate-200"
+                              title="Print Official Case Dossier"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </Link>
+
+                            <button
+                              onClick={() => openActionModal(c)}
+                              className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
+                            >
+                              <span>{isDeptStaff ? 'Update Progress' : 'Review & Assign'}</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1730,12 +1742,24 @@ export default function AdminDashboardPage() {
                   </span>
                 </h3>
               </div>
-              <button
-                onClick={() => setSelectedComplaint(null)}
-                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/admin/complaints/${selectedComplaint.id}/dossier`}
+                  target="_blank"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 border border-slate-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                  title="Open Official Case Dossier & Print Investigation Report"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Print Case Dossier</span>
+                </Link>
+
+                <button
+                  onClick={() => setSelectedComplaint(null)}
+                  className="p-1.5 text-slate-400 hover:text-white bg-slate-800 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleUpdateComplaint} className="p-6 space-y-6">
