@@ -1815,7 +1815,7 @@ export default function AdminDashboardPage() {
                             <td className="py-3.5 px-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
                                 <Link
-                                  href={`/admin/complaints/${c.id}/dossier`}
+                                  href={`/admin/complaints/${c.trackingId}/dossier`}
                                   target="_blank"
                                   className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg transition-colors border border-slate-200"
                                   title="Print Official Case Dossier"
@@ -2364,7 +2364,7 @@ export default function AdminDashboardPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Link
-                  href={`/admin/complaints/${selectedComplaint.id}/dossier`}
+                  href={`/admin/complaints/${selectedComplaint.trackingId}/dossier`}
                   target="_blank"
                   className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 hover:text-emerald-300 border border-slate-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
                   title="Open Official Case Dossier & Print Investigation Report"
