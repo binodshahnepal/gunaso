@@ -83,6 +83,9 @@ export async function PATCH(
       note,
       isPublicNote,
       assignedToId,
+      departmentId,
+      unitId,
+      transferReason,
     } = body;
 
     // Identify current logged-in user from cookie
@@ -97,8 +100,10 @@ export async function PATCH(
       }
     }
 
-    const existing = await prisma.complaint.findUnique({
-      where: { id },
+    const existing = await prisma.complaint.findFirst({
+      where: {
+        OR: [{ id }, { trackingId: id }],
+      },
       include: { department: true, unit: true, assignedTo: true },
     });
 
@@ -112,6 +117,39 @@ export async function PATCH(
     const updateData: any = {};
     const newActions: any[] = [];
     let statusChanged = false;
+
+    // 0. Department Transfer handling
+    if (departmentId && departmentId !== existing.departmentId) {
+      const newDept = await prisma.department.findUnique({
+        where: { id: departmentId },
+      });
+
+      if (newDept) {
+        updateData.departmentId = departmentId;
+        updateData.unitId = unitId || null;
+        updateData.assignedToId = null; // Reset specific user assignment upon department transfer
+
+        newActions.push({
+          actionType: 'ASSIGNMENT',
+          description: `Grievance transferred from ${existing.department.nameEn} to ${newDept.nameEn}. ${transferReason ? `Note: ${transferReason}` : 'Re-assigned to respective department.'}`,
+          isPublic: true,
+          actorId: currentUser?.id || null,
+        });
+
+        // Notify admins and new department
+        await prisma.notification.create({
+          data: {
+            userId: null,
+            complaintId: existing.id,
+            title: `Case Re-assigned to ${newDept.nameEn}: ${existing.trackingId}`,
+            message: `${currentUser?.name || 'Officer'} transferred grievance "${existing.subject}" to ${newDept.nameEn}. Reason: ${transferReason || 'Department re-assignment.'}`,
+            type: 'ASSIGNMENT',
+          },
+        });
+      }
+    } else if (unitId !== undefined && unitId !== existing.unitId) {
+      updateData.unitId = unitId || null;
+    }
 
     // 1. Assignment handling
     if (assignedToId !== undefined && assignedToId !== existing.assignedToId) {
@@ -217,7 +255,7 @@ export async function PATCH(
     }
 
     const updatedComplaint = await prisma.complaint.update({
-      where: { id },
+      where: { id: existing.id },
       data: {
         ...updateData,
         actions: {

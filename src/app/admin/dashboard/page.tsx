@@ -1081,6 +1081,16 @@ export default function AdminDashboardPage() {
               </button>
             )}
 
+            {/* SWITCH TO STAFF / DEPT WORKSPACE */}
+            <Link
+              href="/staff/dashboard"
+              className="px-3.5 py-2 bg-indigo-900/80 hover:bg-indigo-800 text-indigo-200 text-xs font-semibold rounded-lg transition-colors border border-indigo-700 flex items-center gap-1.5"
+              title="Open Dedicated Department Officer Workspace"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Dept Desk</span>
+            </Link>
+
             {/* CSV EXPORT */}
             <button
               onClick={exportToCSV}

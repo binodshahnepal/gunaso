@@ -126,7 +126,7 @@ export default function Navbar() {
               className="px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg transition-colors flex items-center gap-1.5 ml-2"
             >
               <UserCheck className="w-4 h-4 text-slate-500" />
-              <span>Admin</span>
+              <span>Staff / Admin</span>
             </Link>
           </div>
 
@@ -202,7 +202,7 @@ export default function Navbar() {
             className="block px-3 py-2 text-sm font-bold text-slate-600 border border-slate-200 rounded-md flex items-center gap-2"
           >
             <UserCheck className="w-4 h-4" />
-            Admin Portal / प्रशासन लगइन
+            Staff & Admin / कर्मचारी तथा प्रशासन
           </Link>
 
           <div className="pt-3 border-t border-slate-100 px-3 text-xs text-slate-600 space-y-1 bg-slate-50 rounded-lg">

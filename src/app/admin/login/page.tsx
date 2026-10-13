@@ -33,8 +33,13 @@ export default function AdminLoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
-      showToast('Welcome, Administrator!', 'success');
-      router.push('/admin/dashboard');
+      if (data.user?.role === 'DEPT_HEAD' || data.user?.role === 'INVESTIGATOR') {
+        showToast(`Welcome, ${data.user.name} (${data.user.department || 'Department Head'})!`, 'success');
+        router.push('/staff/dashboard');
+      } else {
+        showToast(`Welcome, ${data.user?.name || 'Administrator'}!`, 'success');
+        router.push('/admin/dashboard');
+      }
     } catch (err: any) {
       const msg = err.message || 'Invalid credentials';
       setErrorMsg(msg);
@@ -117,10 +122,19 @@ export default function AdminLoginPage() {
           </form>
 
           {/* DEMO CREDENTIALS BOX */}
-          <div className="bg-slate-100 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 space-y-1">
-            <div className="font-bold text-slate-800">Demo Login Credentials:</div>
-            <div>• Super Admin Email: <code className="bg-white px-1 py-0.5 rounded text-slate-900 font-mono">admin@hospital.gov.np</code></div>
-            <div>• Password: <code className="bg-white px-1 py-0.5 rounded text-slate-900 font-mono">Admin@123456</code></div>
+          <div className="bg-slate-100 border border-slate-200 rounded-xl p-3.5 text-xs text-slate-600 space-y-1.5">
+            <div className="font-bold text-slate-800">Demo Login Accounts:</div>
+            <div>
+              <span className="font-semibold text-slate-700">• Central Super Admin:</span>{' '}
+              <code className="bg-white px-1 py-0.5 rounded text-slate-900 font-mono">admin@hospital.gov.np</code>
+            </div>
+            <div>
+              <span className="font-semibold text-slate-700">• Emergency Dept Head:</span>{' '}
+              <code className="bg-white px-1 py-0.5 rounded text-slate-900 font-mono">er.head@hospital.gov.np</code>
+            </div>
+            <div className="text-[11px] text-slate-500 pt-0.5">
+              Password for all accounts: <code className="bg-white px-1 py-0.5 rounded text-slate-900 font-mono font-bold">Admin@123456</code>
+            </div>
           </div>
         </div>
       </main>
