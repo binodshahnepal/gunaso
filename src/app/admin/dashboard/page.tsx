@@ -1015,7 +1015,7 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen flex flex-col bg-slate-100">
       {/* ADMIN HEADER */}
       <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="max-w-7xl 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
           {/* Hospital Brand & Console Title */}
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-white p-0.5 shadow-md flex items-center justify-center shrink-0">
@@ -1213,7 +1213,7 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6">
+      <main className="flex-1 max-w-7xl 2xl:max-w-[1536px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6">
         {/* TOP LEVEL VIEW SELECTOR */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2">
@@ -1760,18 +1760,18 @@ export default function AdminDashboardPage() {
             {/* COMPLAINTS DATA TABLE */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[1350px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase font-semibold">
-                      <th className="py-3.5 px-4">Tracking ID</th>
-                      <th className="py-3.5 px-4">Status</th>
-                      <th className="py-3.5 px-4">SLA Target & Status</th>
-                      <th className="py-3.5 px-4">Priority</th>
-                      <th className="py-3.5 px-4">Department & Subject</th>
-                      <th className="py-3.5 px-4">Assigned Handler</th>
-                      <th className="py-3.5 px-4">Target Person</th>
-                      <th className="py-3.5 px-4">Submitted By</th>
-                      <th className="py-3.5 px-4 text-right">Action</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Tracking ID</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Status</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px]">SLA Target & Status</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[100px]">Priority</th>
+                      <th className="py-3.5 px-4 min-w-[240px] max-w-xs">Department & Subject</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px]">Assigned Handler</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Target Person</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[150px]">Submitted By</th>
+                      <th className="py-3.5 px-4 text-right whitespace-nowrap min-w-[210px] pr-6">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
@@ -1792,11 +1792,11 @@ export default function AdminDashboardPage() {
                         const isAssignedToMe = currentUser && c.assignedToId === currentUser.id;
                         return (
                           <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="py-3.5 px-4 font-mono font-bold text-emerald-800">
+                            <td className="py-3.5 px-4 font-mono font-bold text-emerald-800 whitespace-nowrap">
                               {c.trackingId}
                             </td>
 
-                            <td className="py-3.5 px-4">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
                               <span
                                 className={`px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider ${
                                   c.status === 'RESOLVED'
@@ -1815,7 +1815,7 @@ export default function AdminDashboardPage() {
                             </td>
 
                             {/* SLA Target & Overdue Status Column */}
-                            <td className="py-3.5 px-4 whitespace-nowrap">
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[160px]">
                               {c.status === 'RESOLVED' ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -1846,7 +1846,7 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3.5 px-4 font-bold">
+                            <td className="py-3.5 px-4 font-bold whitespace-nowrap">
                               <span
                                 className={`${
                                   c.priority === 'CRITICAL'
@@ -1860,7 +1860,7 @@ export default function AdminDashboardPage() {
                               </span>
                             </td>
 
-                            <td className="py-3.5 px-4 max-w-xs">
+                            <td className="py-3.5 px-4 min-w-[240px] max-w-xs">
                               <div className="font-bold text-slate-900 truncate">{c.subject}</div>
                               <div className="text-[11px] text-slate-500">
                                 {c.department.nameEn}
@@ -1869,7 +1869,7 @@ export default function AdminDashboardPage() {
                             </td>
 
                             {/* Assigned Handler */}
-                            <td className="py-3.5 px-4">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
                               {c.assignedTo ? (
                                 <div className="flex flex-col">
                                   <span
@@ -1897,7 +1897,7 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3.5 px-4 text-slate-700">
+                            <td className="py-3.5 px-4 text-slate-700 whitespace-nowrap">
                               {c.targetPersonName ? (
                                 <div>
                                   <span className="font-semibold text-slate-900">{c.targetPersonName}</span>
@@ -1910,7 +1910,7 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3.5 px-4">
+                            <td className="py-3.5 px-4 whitespace-nowrap">
                               {c.isAnonymous ? (
                                 <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">
                                   Anonymous
@@ -1923,23 +1923,23 @@ export default function AdminDashboardPage() {
                               )}
                             </td>
 
-                            <td className="py-3.5 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap min-w-[210px] pr-6">
+                              <div className="flex items-center justify-end gap-2 shrink-0">
                                 <Link
                                   href={`/admin/complaints/${c.trackingId}/dossier`}
                                   target="_blank"
-                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg transition-colors border border-slate-200"
+                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg transition-colors border border-slate-200 shrink-0"
                                   title="Print Official Case Dossier"
                                 >
-                                  <Printer className="w-3.5 h-3.5" />
+                                  <Printer className="w-3.5 h-3.5 shrink-0" />
                                 </Link>
 
                                 <button
                                   onClick={() => openActionModal(c)}
-                                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
+                                  className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap shadow-sm text-xs"
                                 >
                                   <span>{isDeptStaff ? 'Update Progress' : 'Review & Assign'}</span>
-                                  <ChevronRight className="w-3.5 h-3.5" />
+                                  <ChevronRight className="w-3.5 h-3.5 shrink-0" />
                                 </button>
                               </div>
                             </td>
@@ -2058,15 +2058,15 @@ export default function AdminDashboardPage() {
                   ) : filteredAdminUsers.length === 0 ? (
                     <div className="p-8 text-center text-xs text-slate-500">No users match filter criteria.</div>
                   ) : (
-                    <div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto">
-                      <table className="w-full text-left text-xs border-collapse">
+                    <div className="border border-slate-200 rounded-xl overflow-hidden max-h-80 overflow-y-auto overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse min-w-[620px]">
                         <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
                           <tr>
-                            <th className="py-2.5 px-3.5">Name & Email</th>
-                            <th className="py-2.5 px-3.5">Role</th>
-                            <th className="py-2.5 px-3.5">Department</th>
-                            <th className="py-2.5 px-3.5">Assigned Cases</th>
-                            <th className="py-2.5 px-3.5 text-right">Actions</th>
+                            <th className="py-2.5 px-3.5 whitespace-nowrap">Name & Email</th>
+                            <th className="py-2.5 px-3.5 whitespace-nowrap">Role</th>
+                            <th className="py-2.5 px-3.5 whitespace-nowrap">Department</th>
+                            <th className="py-2.5 px-3.5 whitespace-nowrap">Assigned Cases</th>
+                            <th className="py-2.5 px-3.5 text-right whitespace-nowrap min-w-[100px]">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -2112,7 +2112,7 @@ export default function AdminDashboardPage() {
                                   {u._count?.assignedComplaints || 0} active
                                 </span>
                               </td>
-                              <td className="py-3 px-3.5 text-right space-x-1.5">
+                              <td className="py-3 px-3.5 text-right whitespace-nowrap min-w-[100px] space-x-1.5">
                                 <button
                                   type="button"
                                   onClick={() => openEditAdminModal(u)}
