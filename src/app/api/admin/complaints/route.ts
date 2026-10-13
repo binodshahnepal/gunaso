@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     const priority = searchParams.get('priority');
     const assignedToId = searchParams.get('assignedToId');
     const search = searchParams.get('search');
+    const slaStatus = searchParams.get('slaStatus');
 
     const where: any = {};
 
@@ -80,10 +81,39 @@ export async function GET(req: Request) {
       },
     });
 
+    const nowTime = Date.now();
+    let totalOverdueCount = 0;
+
+    const enrichedComplaints = complaints.map((c) => {
+      const slaHours = c.department.slaHours || 48;
+      const createdAtTime = new Date(c.createdAt).getTime();
+      const deadlineTime = createdAtTime + slaHours * 3600 * 1000;
+      const isResolved = c.status === Status.RESOLVED || c.status === Status.REJECTED;
+      const isOverdue = !isResolved && nowTime > deadlineTime;
+      const hoursOverdue = isOverdue ? Math.max(1, Math.round((nowTime - deadlineTime) / 3600000)) : 0;
+      const hoursRemaining = !isResolved && !isOverdue ? Math.max(0, Math.round((deadlineTime - nowTime) / 3600000)) : 0;
+
+      if (isOverdue) totalOverdueCount++;
+
+      return {
+        ...c,
+        slaDeadline: new Date(deadlineTime).toISOString(),
+        isOverdue,
+        hoursOverdue,
+        hoursRemaining,
+      };
+    });
+
+    const filteredComplaints =
+      slaStatus === 'OVERDUE'
+        ? enrichedComplaints.filter((c) => c.isOverdue)
+        : enrichedComplaints;
+
     return NextResponse.json({
       success: true,
-      count: complaints.length,
-      complaints,
+      count: filteredComplaints.length,
+      overdueCount: totalOverdueCount,
+      complaints: filteredComplaints,
     });
   } catch (error) {
     console.error('Error fetching admin complaints:', error);

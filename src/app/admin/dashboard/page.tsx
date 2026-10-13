@@ -39,6 +39,12 @@ import {
   MessageSquare,
   AlertCircle,
   Printer,
+  BarChart3,
+  TrendingUp,
+  Zap,
+  Activity,
+  Timer,
+  Award,
 } from 'lucide-react';
 
 interface Unit {
@@ -103,6 +109,22 @@ interface Complaint {
   } | null;
   actions: ActionLog[];
   feedback: { rating: number; comments: string | null } | null;
+  slaDeadline?: string;
+  isOverdue?: boolean;
+  hoursOverdue?: number;
+  hoursRemaining?: number;
+}
+
+interface DepartmentAnalytics {
+  id: string;
+  nameEn: string;
+  code: string;
+  slaHours: number;
+  total: number;
+  resolved: number;
+  active: number;
+  overdue: number;
+  resolutionRate: number;
 }
 
 interface Stats {
@@ -113,8 +135,35 @@ interface Stats {
   resolved: number;
   rejected: number;
   escalated: number;
+  overdueCount: number;
+  slaComplianceRate: number;
+  avgTurnaroundHours: string;
   avgRating: string;
   feedbackCount: number;
+  priorityBreakdown?: {
+    CRITICAL: number;
+    HIGH: number;
+    MEDIUM: number;
+    LOW: number;
+  };
+  categoryBreakdown?: Array<{
+    category: string;
+    count: number;
+    percentage: number;
+  }>;
+  departmentAnalytics?: DepartmentAnalytics[];
+  starDistribution?: Record<number, number>;
+  recentFeedback?: Array<{
+    id: string;
+    rating: number;
+    comments: string | null;
+    createdAt: string;
+    complaint?: {
+      trackingId: string;
+      subject: string;
+      department?: { nameEn: string };
+    };
+  }>;
 }
 
 interface AdminUser {
@@ -193,6 +242,10 @@ export default function AdminDashboardPage() {
   // Current Logged-in Staff Session
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
+  // Tab View Modes
+  const [dashboardTab, setDashboardTab] = useState<'MANAGEMENT' | 'ANALYTICS'>('MANAGEMENT');
+  const [analyticsTimeframe, setAnalyticsTimeframe] = useState<'ALL' | '30D' | '7D'>('ALL');
+
   // Core Data
   const [stats, setStats] = useState<Stats | null>(null);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -211,7 +264,9 @@ export default function AdminDashboardPage() {
   const [deptFilter, setDeptFilter] = useState('ALL');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
   const [assignedFilter, setAssignedFilter] = useState<'ALL' | 'ASSIGNED_TO_ME' | 'UNASSIGNED'>('ALL');
+  const [slaFilter, setSlaFilter] = useState<'ALL' | 'OVERDUE'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [runningEscalation, setRunningEscalation] = useState(false);
 
   // Active Selected Complaint for Modal
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
@@ -265,7 +320,6 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (data.success && data.user) {
         setCurrentUser(data.user);
-        // If department staff, default the department filter to their department
         if ((data.user.role === 'DEPT_HEAD' || data.user.role === 'INVESTIGATOR') && data.user.departmentId) {
           setDeptFilter(data.user.departmentId);
         }
@@ -323,9 +377,10 @@ export default function AdminDashboardPage() {
   };
 
   // 3. Fetch Stats
-  const fetchStats = async () => {
+  const fetchStats = async (tf?: string) => {
     try {
-      const res = await fetch('/api/admin/stats');
+      const selectedTf = tf || analyticsTimeframe;
+      const res = await fetch(`/api/admin/stats?timeframe=${selectedTf}`);
       const data = await res.json();
       if (data.success) setStats(data.stats);
     } catch (err) {
@@ -373,6 +428,9 @@ export default function AdminDashboardPage() {
     setLoading(true);
     try {
       let url = `/api/admin/complaints?status=${statusFilter}&departmentId=${deptFilter}&priority=${priorityFilter}`;
+      if (slaFilter === 'OVERDUE') {
+        url += '&slaStatus=OVERDUE';
+      }
       if (assignedFilter === 'ASSIGNED_TO_ME' && currentUser) {
         url += `&assignedToId=${currentUser.id}`;
       } else if (assignedFilter === 'UNASSIGNED') {
@@ -390,6 +448,33 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 7. Auto-Escalation Scan Trigger
+  const handleRunEscalation = async () => {
+    if (
+      !window.confirm(
+        'Run Automated SLA Escalation Scan now?\n\nThis will scan all active unresolved grievances and automatically escalate any cases that have breached their department SLA deadline to Senior Hospital Management.'
+      )
+    ) {
+      return;
+    }
+
+    setRunningEscalation(true);
+    try {
+      const res = await fetch('/api/admin/escalate', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message);
+
+      alert(data.message || 'SLA Escalation scan completed.');
+      fetchComplaints();
+      fetchStats();
+      fetchNotifications();
+    } catch (err: any) {
+      alert(err.message || 'Failed to execute SLA escalation scan');
+    } finally {
+      setRunningEscalation(false);
+    }
+  };
+
   // On Mount
   useEffect(() => {
     fetchCurrentUser();
@@ -398,7 +483,6 @@ export default function AdminDashboardPage() {
     fetchAdminUsers();
     fetchNotifications();
 
-    // Close notifications dropdown on outside click
     const handleClickOutside = (e: MouseEvent) => {
       if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
         setShowNotificationsDropdown(false);
@@ -419,7 +503,7 @@ export default function AdminDashboardPage() {
   // Refetch complaints on filter changes
   useEffect(() => {
     fetchComplaints();
-  }, [statusFilter, deptFilter, priorityFilter, assignedFilter, currentUser]);
+  }, [statusFilter, deptFilter, priorityFilter, assignedFilter, slaFilter, currentUser]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -443,12 +527,10 @@ export default function AdminDashboardPage() {
     setShowNotificationsDropdown(false);
 
     if (notif.complaint) {
-      // Find the complaint in current list or fetch directly
       const found = complaints.find((c) => c.id === notif.complaint?.id);
       if (found) {
         openActionModal(found);
       } else {
-        // Set search query and refetch
         setSearchQuery(notif.complaint.trackingId);
         try {
           const res = await fetch(`/api/admin/complaints?search=${encodeURIComponent(notif.complaint.trackingId)}`);
@@ -670,6 +752,7 @@ export default function AdminDashboardPage() {
     const headers = [
       'Tracking ID',
       'Status',
+      'SLA Status',
       'Priority',
       'Assigned Officer',
       'Category',
@@ -687,6 +770,7 @@ export default function AdminDashboardPage() {
     const rows = complaints.map((c) => [
       `"${c.trackingId}"`,
       `"${c.status}"`,
+      `"${c.isOverdue ? `Overdue (+${c.hoursOverdue}h)` : c.status === 'RESOLVED' ? 'Resolved' : `Within SLA (${c.hoursRemaining}h left)`}"`,
       `"${c.priority}"`,
       `"${c.assignedTo ? c.assignedTo.name : 'Unassigned'}"`,
       `"${c.category}"`,
@@ -855,6 +939,19 @@ export default function AdminDashboardPage() {
               )}
             </div>
 
+            {/* SLA AUTO-ESCALATE BUTTON */}
+            {isCentralAdmin && (
+              <button
+                onClick={handleRunEscalation}
+                disabled={runningEscalation}
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                title="Scan all active grievances and automatically escalate cases exceeding their department SLA hours"
+              >
+                <Zap className={`w-4 h-4 ${runningEscalation ? 'animate-spin' : ''}`} />
+                <span>{runningEscalation ? 'Scanning...' : 'Auto-Escalate Overdue'}</span>
+              </button>
+            )}
+
             {/* SUPER ADMIN: MANAGE STAFF & ADMINS */}
             {isSuperAdmin && (
               <button
@@ -903,326 +1000,751 @@ export default function AdminDashboardPage() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-6">
-        {/* STATS METRICS ROW */}
-        {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="text-xs text-slate-500 font-medium">Total Grievances</div>
-              <div className="text-2xl font-extrabold text-slate-900 mt-1">{stats.total}</div>
+        {/* TOP LEVEL VIEW SELECTOR */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDashboardTab('MANAGEMENT')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                dashboardTab === 'MANAGEMENT'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Grievance Inquiries & Management</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setDashboardTab('ANALYTICS');
+                fetchStats();
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                dashboardTab === 'ANALYTICS'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 text-emerald-400" />
+              <span>Executive BI Analytics & Insights</span>
+              {stats?.overdueCount !== undefined && stats.overdueCount > 0 && (
+                <span className="bg-rose-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                  {stats.overdueCount} Overdue
+                </span>
+              )}
+            </button>
+          </div>
+
+          {dashboardTab === 'ANALYTICS' && (
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+              <span className="text-slate-400 text-[11px] px-2">Timeframe:</span>
+              {(['ALL', '30D', '7D'] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => {
+                    setAnalyticsTimeframe(tf);
+                    fetchStats(tf);
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-all ${
+                    analyticsTimeframe === tf
+                      ? 'bg-emerald-700 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {tf === 'ALL' ? 'All Time' : tf === '30D' ? 'Last 30 Days' : 'Last 7 Days'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================================= */}
+        {/* VIEW 1: EXECUTIVE BI ANALYTICS & INSIGHTS */}
+        {/* ========================================================================= */}
+        {dashboardTab === 'ANALYTICS' && stats && (
+          <div className="space-y-6">
+            {/* Top 4 KPI Executive Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Resolution Rate */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
+                  <span>Hospital Resolution Rate</span>
+                  <Activity className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="text-3xl font-black text-slate-900">
+                  {stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0}%
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0}%`,
+                    }}
+                  />
+                </div>
+                <div className="text-[11px] text-slate-500 flex justify-between">
+                  <span>{stats.resolved} Closed</span>
+                  <span>{stats.total} Lodged</span>
+                </div>
+              </div>
+
+              {/* Card 2: SLA Quality Compliance */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
+                  <span>SLA Target Compliance</span>
+                  <Timer className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="text-3xl font-black text-slate-900 flex items-center gap-2">
+                  <span>{stats.slaComplianceRate}%</span>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                      stats.slaComplianceRate >= 80
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : stats.slaComplianceRate >= 60
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    {stats.slaComplianceRate >= 80 ? 'Optimal' : 'Needs Focus'}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${stats.slaComplianceRate}%` }}
+                  />
+                </div>
+                <div className="text-[11px] text-slate-500 flex justify-between">
+                  <span>On-time Resolution</span>
+                  <span className="text-rose-600 font-bold">{stats.overdueCount} Overdue</span>
+                </div>
+              </div>
+
+              {/* Card 3: Avg Turnaround Hours */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
+                  <span>Avg Turnaround Time</span>
+                  <Clock className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="text-3xl font-black text-slate-900 flex items-baseline gap-1">
+                  <span>{stats.avgTurnaroundHours}</span>
+                  <span className="text-sm font-bold text-slate-500">Hours</span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Average duration from complaint intake to verified closure across hospital departments.
+                </p>
+              </div>
+
+              {/* Card 4: CSAT Rating */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
+                  <span>Patient Satisfaction Index</span>
+                  <Award className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="text-3xl font-black text-amber-500 flex items-center gap-1.5">
+                  <span>{stats.avgRating}</span>
+                  <div className="flex items-center">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-4 h-4 ${
+                          star <= Math.round(parseFloat(stats.avgRating))
+                            ? 'fill-amber-400 text-amber-500'
+                            : 'text-slate-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Calculated from <strong>{stats.feedbackCount}</strong> verified patient satisfaction ratings.
+                </div>
+              </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="text-xs text-amber-600 font-semibold">Submitted (New)</div>
-              <div className="text-2xl font-extrabold text-amber-600 mt-1">{stats.submitted}</div>
+            {/* Middle Grid: Department Efficiency & Category Distribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Department Efficiency Matrix */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-emerald-700" />
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      Departmental Resolution & Workload Matrix
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-400">Target vs Performance</span>
+                </div>
+
+                <div className="space-y-3.5 max-h-96 overflow-y-auto pr-1">
+                  {stats.departmentAnalytics && stats.departmentAnalytics.length > 0 ? (
+                    stats.departmentAnalytics.map((dept) => (
+                      <div key={dept.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+                        <div className="flex items-center justify-between font-bold text-slate-900">
+                          <div className="flex items-center gap-2">
+                            <span>{dept.nameEn}</span>
+                            <span className="font-mono text-[10px] text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                              {dept.code}
+                            </span>
+                          </div>
+                          <span className="text-emerald-700 font-extrabold">{dept.resolutionRate}% Resolved</span>
+                        </div>
+
+                        <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              dept.resolutionRate >= 80
+                                ? 'bg-emerald-600'
+                                : dept.resolutionRate >= 50
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                            }`}
+                            style={{ width: `${dept.resolutionRate}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500">
+                          <span>Total: <strong>{dept.total}</strong></span>
+                          <span>Active: <strong className="text-blue-700">{dept.active}</strong></span>
+                          <span>Resolved: <strong className="text-emerald-700">{dept.resolved}</strong></span>
+                          <span>Overdue: <strong className="text-rose-600">{dept.overdue}</strong></span>
+                          <span>SLA Standard: <strong className="text-slate-700">{dept.slaHours}h</strong></span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-xs text-slate-400">No departmental data in selected timeframe.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Category Breakdown & Distribution */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-blue-700" />
+                    <h3 className="font-bold text-slate-900 text-sm">Grievance Category Distribution</h3>
+                  </div>
+                  <span className="text-xs text-slate-400">% Share</span>
+                </div>
+
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                  {stats.categoryBreakdown && stats.categoryBreakdown.length > 0 ? (
+                    stats.categoryBreakdown.map((cat) => (
+                      <div key={cat.category} className="space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between text-slate-800 font-semibold">
+                          <span>{cat.category.replace(/_/g, ' ')}</span>
+                          <span className="font-mono text-slate-600 font-bold">
+                            {cat.count} cases ({cat.percentage}%)
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${cat.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-xs text-slate-400">No category breakdown available.</div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="text-xs text-blue-600 font-semibold">In Investigation</div>
-              <div className="text-2xl font-extrabold text-blue-600 mt-1">{stats.underInvestigation}</div>
-            </div>
+            {/* Bottom Grid: Patient Satisfaction Breakdown & Priority Matrix */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* CSAT 5-Star Distribution */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <Star className="w-5 h-5 text-amber-500" />
+                  <h3 className="font-bold text-slate-900 text-sm">Patient Rating Distribution</h3>
+                </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="text-xs text-purple-600 font-semibold">Action Initiated</div>
-              <div className="text-2xl font-extrabold text-purple-600 mt-1">{stats.actionTaken}</div>
-            </div>
+                <div className="space-y-2.5 text-xs">
+                  {[5, 4, 3, 2, 1].map((stars) => {
+                    const count = stats.starDistribution ? stats.starDistribution[stars] || 0 : 0;
+                    const pct = stats.feedbackCount > 0 ? Math.round((count / stats.feedbackCount) * 100) : 0;
+                    return (
+                      <div key={stars} className="flex items-center gap-2">
+                        <span className="w-12 font-bold text-slate-700 flex items-center gap-1 shrink-0">
+                          <span>{stars}</span>
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                        </span>
+                        <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-amber-400 h-full rounded-full"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="w-14 text-right text-[11px] text-slate-500 font-mono">
+                          {count} ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="text-xs text-emerald-600 font-semibold">Resolved</div>
-              <div className="text-2xl font-extrabold text-emerald-600 mt-1">{stats.resolved}</div>
-            </div>
+              {/* Priority Distribution Matrix */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <AlertTriangle className="w-5 h-5 text-rose-600" />
+                  <h3 className="font-bold text-slate-900 text-sm">Grievance Priority Severity</h3>
+                </div>
 
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-              <div className="text-xs text-slate-500 font-medium">Avg Satisfaction</div>
-              <div className="text-2xl font-extrabold text-amber-500 mt-1 flex items-center gap-1">
-                <span>{stats.avgRating}</span>
-                <Star className="w-5 h-5 fill-amber-400 text-amber-500" />
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-rose-50 border border-rose-200 p-3.5 rounded-xl text-center space-y-1">
+                    <span className="text-[10px] font-bold text-rose-700 uppercase">Critical</span>
+                    <div className="text-2xl font-black text-rose-800">
+                      {stats.priorityBreakdown?.CRITICAL || 0}
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-center space-y-1">
+                    <span className="text-[10px] font-bold text-amber-700 uppercase">High</span>
+                    <div className="text-2xl font-black text-amber-800">
+                      {stats.priorityBreakdown?.HIGH || 0}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-100 border border-slate-200 p-3.5 rounded-xl text-center space-y-1">
+                    <span className="text-[10px] font-bold text-slate-700 uppercase">Medium</span>
+                    <div className="text-2xl font-black text-slate-800">
+                      {stats.priorityBreakdown?.MEDIUM || 0}
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 p-3.5 rounded-xl text-center space-y-1">
+                    <span className="text-[10px] font-bold text-blue-700 uppercase">Low</span>
+                    <div className="text-2xl font-black text-blue-800">
+                      {stats.priorityBreakdown?.LOW || 0}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Patient Feedback Comments */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <MessageSquare className="w-5 h-5 text-emerald-600" />
+                  <h3 className="font-bold text-slate-900 text-sm">Recent Patient Testimonials</h3>
+                </div>
+
+                <div className="space-y-2.5 max-h-56 overflow-y-auto text-xs">
+                  {stats.recentFeedback && stats.recentFeedback.length > 0 ? (
+                    stats.recentFeedback.map((fb) => (
+                      <div key={fb.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                className={`w-3 h-3 ${
+                                  s <= fb.rating ? 'fill-amber-400 text-amber-500' : 'text-slate-200'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          {fb.complaint && (
+                            <span className="font-mono text-[10px] text-slate-500 font-bold">
+                              {fb.complaint.trackingId}
+                            </span>
+                          )}
+                        </div>
+                        {fb.comments && <p className="text-slate-700 italic text-[11px]">&quot;{fb.comments}&quot;</p>}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-6 text-slate-400 italic">No feedback comments recorded yet.</div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* FILTERS TOOLBAR */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-emerald-600" />
-              <h2 className="font-bold text-slate-900 text-base">Grievance Case Inbox & Filters</h2>
-            </div>
+        {/* ========================================================================= */}
+        {/* VIEW 2: GRIEVANCE INBOX & ACTION WORKFLOW */}
+        {/* ========================================================================= */}
+        {dashboardTab === 'MANAGEMENT' && (
+          <div className="space-y-6">
+            {/* STATS METRICS ROW */}
+            {stats && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="text-xs text-slate-500 font-medium">Total Grievances</div>
+                  <div className="text-2xl font-extrabold text-slate-900 mt-1">{stats.total}</div>
+                </div>
 
-            {/* Quick Assignment / View Mode Tabs */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-                <button
-                  onClick={() => setAssignedFilter('ALL')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    assignedFilter === 'ALL'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  All Cases
-                </button>
-                {currentUser && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="text-xs text-amber-600 font-semibold">Submitted (New)</div>
+                  <div className="text-2xl font-extrabold text-amber-600 mt-1">{stats.submitted}</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="text-xs text-blue-600 font-semibold">In Investigation</div>
+                  <div className="text-2xl font-extrabold text-blue-600 mt-1">{stats.underInvestigation}</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="text-xs text-purple-600 font-semibold">Action Initiated</div>
+                  <div className="text-2xl font-extrabold text-purple-600 mt-1">{stats.actionTaken}</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="text-xs text-emerald-600 font-semibold">Resolved</div>
+                  <div className="text-2xl font-extrabold text-emerald-600 mt-1">{stats.resolved}</div>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="text-xs text-slate-500 font-medium">Avg Satisfaction</div>
+                  <div className="text-2xl font-extrabold text-amber-500 mt-1 flex items-center gap-1">
+                    <span>{stats.avgRating}</span>
+                    <Star className="w-5 h-5 fill-amber-400 text-amber-500" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* FILTERS TOOLBAR */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-5 h-5 text-emerald-600" />
+                  <h2 className="font-bold text-slate-900 text-base">Grievance Case Inbox & Filters</h2>
+                </div>
+
+                {/* Quick Assignment / View Mode Tabs */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                    <button
+                      onClick={() => setAssignedFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${
+                        assignedFilter === 'ALL'
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      All Cases
+                    </button>
+                    {currentUser && (
+                      <button
+                        onClick={() => setAssignedFilter('ASSIGNED_TO_ME')}
+                        className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
+                          assignedFilter === 'ASSIGNED_TO_ME'
+                            ? 'bg-emerald-700 text-white shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <span>Assigned to Me</span>
+                        {currentUser._count?.assignedComplaints ? (
+                          <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                            {currentUser._count.assignedComplaints}
+                          </span>
+                        ) : null}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setAssignedFilter('UNASSIGNED')}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${
+                        assignedFilter === 'UNASSIGNED'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Needs Assignment
+                    </button>
+                  </div>
+
+                  {/* Overdue SLA Filter Button */}
                   <button
-                    onClick={() => setAssignedFilter('ASSIGNED_TO_ME')}
-                    className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 ${
-                      assignedFilter === 'ASSIGNED_TO_ME'
-                        ? 'bg-emerald-700 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900'
+                    onClick={() => setSlaFilter(slaFilter === 'OVERDUE' ? 'ALL' : 'OVERDUE')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      slaFilter === 'OVERDUE'
+                        ? 'bg-rose-700 text-white shadow-sm animate-pulse'
+                        : 'text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200'
                     }`}
                   >
-                    <span>Assigned to Me</span>
-                    {currentUser._count?.assignedComplaints ? (
-                      <span className="bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
-                        {currentUser._count.assignedComplaints}
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>SLA Breached / Overdue</span>
+                    {stats?.overdueCount !== undefined && stats.overdueCount > 0 && (
+                      <span className="bg-rose-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                        {stats.overdueCount}
                       </span>
-                    ) : null}
+                    )}
                   </button>
-                )}
-                <button
-                  onClick={() => setAssignedFilter('UNASSIGNED')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    assignedFilter === 'UNASSIGNED'
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Needs Assignment
-                </button>
+
+                  {/* Quick Status Filter Tabs */}
+                  <div className="flex flex-wrap gap-1 text-xs bg-slate-100 p-1 rounded-xl">
+                    {['ALL', 'SUBMITTED', 'UNDER_INVESTIGATION', 'ACTION_TAKEN', 'RESOLVED', 'REJECTED', 'ESCALATED'].map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => setStatusFilter(st)}
+                        className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
+                          statusFilter === st
+                            ? 'bg-emerald-700 text-white shadow-sm'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                        }`}
+                      >
+                        {st.replace(/_/g, ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              {/* Quick Status Filter Tabs */}
-              <div className="flex flex-wrap gap-1 text-xs bg-slate-100 p-1 rounded-xl">
-                {['ALL', 'SUBMITTED', 'UNDER_INVESTIGATION', 'ACTION_TAKEN', 'RESOLVED', 'REJECTED'].map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => setStatusFilter(st)}
-                    className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
-                      statusFilter === st
-                        ? 'bg-emerald-700 text-white shadow-sm'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                    }`}
+              {/* Secondary Filter Dropdowns & Search */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100">
+                {/* Search Input */}
+                <form onSubmit={handleSearchSubmit} className="sm:col-span-2 relative">
+                  <input
+                    type="text"
+                    placeholder="Search by Tracking ID, subject, staff, patient phone..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                </form>
+
+                {/* Department Filter */}
+                <div>
+                  <select
+                    value={deptFilter}
+                    onChange={(e) => setDeptFilter(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 font-semibold"
                   >
-                    {st.replace(/_/g, ' ')}
-                  </button>
-                ))}
+                    <option value="ALL">All Departments</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.nameEn} ({d.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Priority Filter */}
+                <div>
+                  <select
+                    value={priorityFilter}
+                    onChange={(e) => setPriorityFilter(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 font-semibold"
+                  >
+                    <option value="ALL">All Priorities</option>
+                    <option value="CRITICAL">Critical</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Secondary Filter Dropdowns & Search */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-2 border-t border-slate-100">
-            {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="sm:col-span-2 relative">
-              <input
-                type="text"
-                placeholder="Search by Tracking ID, subject, staff, patient phone..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500"
-              />
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            </form>
-
-            {/* Department Filter */}
-            <div>
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 font-semibold"
-              >
-                <option value="ALL">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.nameEn} ({d.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Priority Filter */}
-            <div>
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 font-semibold"
-              >
-                <option value="ALL">All Priorities</option>
-                <option value="CRITICAL">Critical</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* COMPLAINTS DATA TABLE */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase font-semibold">
-                  <th className="py-3.5 px-4">Tracking ID</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Priority</th>
-                  <th className="py-3.5 px-4">Department & Subject</th>
-                  <th className="py-3.5 px-4">Assigned Handler</th>
-                  <th className="py-3.5 px-4">Target Person</th>
-                  <th className="py-3.5 px-4">Submitted By</th>
-                  <th className="py-3.5 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs">
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} className="py-10 text-center text-slate-400">
-                      Loading complaints data...
-                    </td>
-                  </tr>
-                ) : complaints.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-10 text-center text-slate-400">
-                      No complaints match the filter criteria.
-                    </td>
-                  </tr>
-                ) : (
-                  complaints.map((c) => {
-                    const isAssignedToMe = currentUser && c.assignedToId === currentUser.id;
-                    return (
-                      <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-bold text-emerald-800">
-                          {c.trackingId}
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider ${
-                              c.status === 'RESOLVED'
-                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                : c.status === 'SUBMITTED'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                : c.status === 'UNDER_INVESTIGATION'
-                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                : 'bg-purple-100 text-purple-800 border border-purple-300'
-                            }`}
-                          >
-                            {c.status.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 font-bold">
-                          <span
-                            className={`${
-                              c.priority === 'CRITICAL'
-                                ? 'text-rose-600'
-                                : c.priority === 'HIGH'
-                                ? 'text-amber-600'
-                                : 'text-slate-600'
-                            }`}
-                          >
-                            {c.priority}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 max-w-xs">
-                          <div className="font-bold text-slate-900 truncate">{c.subject}</div>
-                          <div className="text-[11px] text-slate-500">
-                            {c.department.nameEn}
-                            {c.unit && <span className="text-emerald-700 font-semibold"> • {c.unit.nameEn}</span>}
-                          </div>
-                        </td>
-
-                        {/* Assigned Handler */}
-                        <td className="py-3.5 px-4">
-                          {c.assignedTo ? (
-                            <div className="flex flex-col">
-                              <span
-                                className={`inline-flex items-center gap-1 font-semibold text-[11px] ${
-                                  isAssignedToMe ? 'text-emerald-700 font-bold' : 'text-slate-800'
-                                }`}
-                              >
-                                <User className="w-3 h-3 text-slate-400" />
-                                {c.assignedTo.name}
-                                {isAssignedToMe && (
-                                  <span className="bg-emerald-100 text-emerald-800 text-[9px] px-1 py-0.2 rounded font-bold">
-                                    YOU
-                                  </span>
-                                )}
-                              </span>
-                              <span className="text-[10px] text-slate-400 capitalize">
-                                {c.assignedTo.role.replace(/_/g, ' ').toLowerCase()}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                              <AlertCircle className="w-3 h-3" />
-                              Unassigned
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-slate-700">
-                          {c.targetPersonName ? (
-                            <div>
-                              <span className="font-semibold text-slate-900">{c.targetPersonName}</span>
-                              {c.targetPersonRole && (
-                                <span className="text-slate-400 block text-[10px]">({c.targetPersonRole})</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-400">N/A</span>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          {c.isAnonymous ? (
-                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">
-                              Anonymous
-                            </span>
-                          ) : (
-                            <div>
-                              <span className="font-semibold text-slate-900">{c.patientName}</span>
-                              <span className="text-slate-400 block text-[10px]">{c.patientPhone}</span>
-                            </div>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Link
-                              href={`/admin/complaints/${c.id}/dossier`}
-                              target="_blank"
-                              className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg transition-colors border border-slate-200"
-                              title="Print Official Case Dossier"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </Link>
-
-                            <button
-                              onClick={() => openActionModal(c)}
-                              className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
-                            >
-                              <span>{isDeptStaff ? 'Update Progress' : 'Review & Assign'}</span>
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+            {/* COMPLAINTS DATA TABLE */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase font-semibold">
+                      <th className="py-3.5 px-4">Tracking ID</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4">SLA Target & Status</th>
+                      <th className="py-3.5 px-4">Priority</th>
+                      <th className="py-3.5 px-4">Department & Subject</th>
+                      <th className="py-3.5 px-4">Assigned Handler</th>
+                      <th className="py-3.5 px-4">Target Person</th>
+                      <th className="py-3.5 px-4">Submitted By</th>
+                      <th className="py-3.5 px-4 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={9} className="py-10 text-center text-slate-400">
+                          Loading complaints data...
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                    ) : complaints.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="py-10 text-center text-slate-400">
+                          No complaints match the filter criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      complaints.map((c) => {
+                        const isAssignedToMe = currentUser && c.assignedToId === currentUser.id;
+                        return (
+                          <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3.5 px-4 font-mono font-bold text-emerald-800">
+                              {c.trackingId}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider ${
+                                  c.status === 'RESOLVED'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : c.status === 'SUBMITTED'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : c.status === 'UNDER_INVESTIGATION'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                    : c.status === 'ESCALATED'
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    : 'bg-purple-100 text-purple-800 border border-purple-300'
+                                }`}
+                              >
+                                {c.status.replace(/_/g, ' ')}
+                              </span>
+                            </td>
+
+                            {/* SLA Target & Overdue Status Column */}
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              {c.status === 'RESOLVED' ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  Resolved
+                                </span>
+                              ) : c.status === 'REJECTED' ? (
+                                <span className="text-[10px] text-slate-400 font-mono">Closed</span>
+                              ) : c.isOverdue ? (
+                                <div className="flex flex-col">
+                                  <span className="inline-flex items-center gap-1 font-black text-[10px] text-rose-800 bg-rose-100 px-2 py-0.5 rounded border border-rose-300 animate-pulse">
+                                    <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                    Overdue (+{c.hoursOverdue}h)
+                                  </span>
+                                  <span className="text-[10px] text-rose-600 font-medium mt-0.5">
+                                    Target: {c.department.slaHours || 48}h SLA
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                    <Clock className="w-3 h-3 text-emerald-600" />
+                                    {c.hoursRemaining}h remaining
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 mt-0.5">
+                                    Target: {c.department.slaHours || 48}h
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 font-bold">
+                              <span
+                                className={`${
+                                  c.priority === 'CRITICAL'
+                                    ? 'text-rose-600'
+                                    : c.priority === 'HIGH'
+                                    ? 'text-amber-600'
+                                    : 'text-slate-600'
+                                }`}
+                              >
+                                {c.priority}
+                              </span>
+                            </td>
+
+                            <td className="py-3.5 px-4 max-w-xs">
+                              <div className="font-bold text-slate-900 truncate">{c.subject}</div>
+                              <div className="text-[11px] text-slate-500">
+                                {c.department.nameEn}
+                                {c.unit && <span className="text-emerald-700 font-semibold"> • {c.unit.nameEn}</span>}
+                              </div>
+                            </td>
+
+                            {/* Assigned Handler */}
+                            <td className="py-3.5 px-4">
+                              {c.assignedTo ? (
+                                <div className="flex flex-col">
+                                  <span
+                                    className={`inline-flex items-center gap-1 font-semibold text-[11px] ${
+                                      isAssignedToMe ? 'text-emerald-700 font-bold' : 'text-slate-800'
+                                    }`}
+                                  >
+                                    <User className="w-3 h-3 text-slate-400" />
+                                    {c.assignedTo.name}
+                                    {isAssignedToMe && (
+                                      <span className="bg-emerald-100 text-emerald-800 text-[9px] px-1 py-0.2 rounded font-bold">
+                                        YOU
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 capitalize">
+                                    {c.assignedTo.role.replace(/_/g, ' ').toLowerCase()}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                  <AlertCircle className="w-3 h-3" />
+                                  Unassigned
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-slate-700">
+                              {c.targetPersonName ? (
+                                <div>
+                                  <span className="font-semibold text-slate-900">{c.targetPersonName}</span>
+                                  {c.targetPersonRole && (
+                                    <span className="text-slate-400 block text-[10px]">({c.targetPersonRole})</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400">N/A</span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              {c.isAnonymous ? (
+                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">
+                                  Anonymous
+                                </span>
+                              ) : (
+                                <div>
+                                  <span className="font-semibold text-slate-900">{c.patientName}</span>
+                                  <span className="text-slate-400 block text-[10px]">{c.patientPhone}</span>
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Link
+                                  href={`/admin/complaints/${c.id}/dossier`}
+                                  target="_blank"
+                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-lg transition-colors border border-slate-200"
+                                  title="Print Official Case Dossier"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                </Link>
+
+                                <button
+                                  onClick={() => openActionModal(c)}
+                                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-1"
+                                >
+                                  <span>{isDeptStaff ? 'Update Progress' : 'Review & Assign'}</span>
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       {/* STAFF & ADMINISTRATOR MANAGEMENT MODAL */}
       {showAdminModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl border border-slate-200 max-w-3xl w-full shadow-2xl overflow-hidden space-y-6 my-8">
-            {/* Modal Header */}
             <div className="bg-slate-900 text-white p-6 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Shield className="w-5 h-5 text-blue-400" />
@@ -1242,7 +1764,6 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="px-6 pb-6 space-y-5">
-              {/* Tabs & Search */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2">
                   <button
@@ -1302,7 +1823,6 @@ export default function AdminDashboardPage() {
                 )}
               </div>
 
-              {/* Alert Feedback */}
               {adminError && (
                 <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -1316,7 +1836,7 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              {/* TAB 1: LIST VIEW */}
+              {/* LIST VIEW */}
               {adminModalTab === 'LIST' && (
                 <div className="space-y-3">
                   {loadingAdmins ? (
@@ -1410,7 +1930,7 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              {/* TAB 2: CREATE / EDIT FORM */}
+              {/* CREATE / EDIT FORM */}
               {adminModalTab === 'FORM' && (
                 <form onSubmit={handleSaveAdmin} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1534,7 +2054,6 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* TAB SELECTOR */}
               <div className="flex border-b border-slate-200 gap-4 text-xs font-bold">
                 <button
                   onClick={() => setCreatorTab('DEPT')}
@@ -1558,7 +2077,6 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
 
-              {/* FORM 1: CREATE DEPARTMENT */}
               {creatorTab === 'DEPT' ? (
                 <form onSubmit={handleCreateDepartment} className="space-y-4">
                   <div>
@@ -1626,7 +2144,6 @@ export default function AdminDashboardPage() {
                   </button>
                 </form>
               ) : (
-                /* FORM 2: CREATE UNIT */
                 <form onSubmit={handleCreateUnit} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
