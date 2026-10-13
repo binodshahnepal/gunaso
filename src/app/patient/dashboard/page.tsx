@@ -27,6 +27,13 @@ import {
   ExternalLink,
   Info,
 } from 'lucide-react';
+import {
+  showSuccessAlert,
+  showErrorAlert,
+  showConfirmDialog,
+  showToast,
+} from '@/lib/alerts';
+
 
 interface Patient {
   id: string;
@@ -136,6 +143,14 @@ export default function PatientDashboardPage() {
   };
 
   const handleLogout = async () => {
+    const confirmed = await showConfirmDialog(
+      'Sign Out / लगआउट?',
+      'Are you sure you want to sign out from the patient portal?',
+      'Yes, Sign Out / लगआउट गर्नुहोस्',
+      'Cancel / रद्द गर्नुहोस्'
+    );
+    if (!confirmed) return;
+
     await fetch('/api/patient/logout', { method: 'POST' });
     router.push('/patient/login');
   };
@@ -159,10 +174,15 @@ export default function PatientDashboardPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message);
 
+      await showSuccessAlert(
+        'धन्यवाद! Thank You',
+        'तपाईंको प्रतिक्रिया र मूल्याङ्कन सफलतापूर्वक दर्ता भयो। (Your feedback and rating have been recorded.)'
+      );
+
       // Refresh list
       fetchPatientData(searchPhoneInput.trim() || undefined);
     } catch (err: any) {
-      alert(err.message || 'Failed to submit feedback');
+      await showErrorAlert('प्रतिक्रिया त्रुटि / Error', err.message || 'Failed to submit feedback');
     } finally {
       setSubmittingRating((prev) => ({ ...prev, [complaintId]: false }));
     }

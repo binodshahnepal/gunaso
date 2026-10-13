@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { UserCheck, Phone, Lock, AlertCircle, ShieldCheck } from 'lucide-react';
+import { showErrorAlert, showToast } from '@/lib/alerts';
 
 export default function PatientLoginPage() {
   const router = useRouter();
@@ -20,7 +21,9 @@ export default function PatientLoginPage() {
     setErrorMsg('');
 
     if (!identifier.trim() || !password.trim()) {
-      setErrorMsg('Please enter your Mobile Number (or Email) and Password');
+      const msg = 'Please enter your Mobile Number (or Email) and Password';
+      setErrorMsg(msg);
+      showErrorAlert('Missing Information / आवश्यक विवरण छुटेको', msg);
       return;
     }
 
@@ -42,9 +45,12 @@ export default function PatientLoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
+      showToast('Welcome to Patient Portal!', 'success');
       router.push('/patient/dashboard');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Invalid login credentials');
+      const msg = err.message || 'Invalid login credentials';
+      setErrorMsg(msg);
+      showErrorAlert('Login Failed / लगइन असफल', msg);
     } finally {
       setLoading(false);
     }

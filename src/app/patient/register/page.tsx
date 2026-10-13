@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { User, Phone, Mail, Lock, AlertCircle, CheckCircle2, UserPlus, ShieldCheck } from 'lucide-react';
+import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
 
 export default function PatientRegisterPage() {
   const router = useRouter();
@@ -23,7 +24,9 @@ export default function PatientRegisterPage() {
     setErrorMsg('');
 
     if (!name.trim() || (!phone.trim() && !email.trim()) || !password.trim()) {
-      setErrorMsg('Full Name, Mobile Number (or Email), and Password are required');
+      const msg = 'Full Name, Mobile Number (or Email), and Password are required';
+      setErrorMsg(msg);
+      showErrorAlert('Missing Information / आवश्यक विवरण छुटेको', msg);
       return;
     }
 
@@ -47,9 +50,15 @@ export default function PatientRegisterPage() {
         throw new Error(data.message || 'Registration failed');
       }
 
+      await showSuccessAlert(
+        'खाता सफलतापूर्वक खुल्यो! / Account Created',
+        'तपाईंको बिरामी खाता तयार भएको छ। ड्यासबोर्डमा प्रवेश गर्दै हुनुहुन्छ... (Welcome! Taking you to your portal...)'
+      );
       router.push('/patient/dashboard');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to create patient account');
+      const msg = err.message || 'Failed to create patient account';
+      setErrorMsg(msg);
+      showErrorAlert('Registration Failed / दर्ता असफल', msg);
     } finally {
       setLoading(false);
     }

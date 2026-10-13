@@ -22,6 +22,8 @@ import {
   User,
   Check,
 } from 'lucide-react';
+import { showSuccessAlert, showErrorAlert, showToast } from '@/lib/alerts';
+
 
 interface Unit {
   id: string;
@@ -190,8 +192,10 @@ export default function LodgeComplaintPage() {
       }
 
       setSuccessData(data.data);
+      showToast('Grievance lodged successfully!', 'success');
     } catch (err: any) {
       setErrorMsg(err.message || 'An error occurred while submitting.');
+      showErrorAlert('Submission Failed / उजुरी दर्ता हुन सकेन', err.message || 'An error occurred while submitting.');
     } finally {
       setSubmitting(false);
     }
@@ -203,6 +207,7 @@ export default function LodgeComplaintPage() {
       `Tracking ID: ${successData.trackingId}\nPIN: ${successData.pin}\nLink: ${window.location.origin}/track?trackingId=${successData.trackingId}&pin=${successData.pin}`
     );
     setCopiedToken(true);
+    showToast('Tracking credentials copied to clipboard!', 'success');
     setTimeout(() => setCopiedToken(false), 3000);
   };
 

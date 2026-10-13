@@ -23,6 +23,8 @@ import {
   FileText,
   ChevronRight,
 } from 'lucide-react';
+import { showSuccessAlert, showErrorAlert } from '@/lib/alerts';
+
 
 interface ActionLog {
   id: string;
@@ -159,8 +161,12 @@ function TrackContent() {
       if (!res.ok || !data.success) throw new Error(data.message);
 
       setFeedbackSuccess(true);
+      await showSuccessAlert(
+        'धन्यवाद! Thank You',
+        'तपाईंको प्रतिक्रिया र मूल्याङ्कन सफलतापूर्वक दर्ता भयो। (Your feedback and rating have been recorded successfully.)'
+      );
     } catch (err: any) {
-      alert(err.message || 'Failed to submit feedback');
+      await showErrorAlert('प्रतिक्रिया त्रुटि / Error', err.message || 'Failed to submit feedback');
     } finally {
       setSubmittingFeedback(false);
     }

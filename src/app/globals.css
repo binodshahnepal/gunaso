@@ -24,3 +24,49 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* SweetAlert2 Enhancements */
+.swal2-container {
+  z-index: 99999 !important;
+}
+
+.swal2-popup {
+  border-radius: 1.25rem !important;
+  font-family: inherit !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25) !important;
+}
+
+.swal2-title {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.swal2-html-container {
+  color: #475569 !important;
+  font-size: 0.95rem !important;
+  line-height: 1.5 !important;
+}
+
+.swal2-actions {
+  gap: 0.75rem !important;
+}
+
+.swal2-styled.swal2-confirm {
+  border-radius: 0.75rem !important;
+  font-weight: 600 !important;
+  padding: 0.65rem 1.4rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+.swal2-styled.swal2-cancel {
+  border-radius: 0.75rem !important;
+  font-weight: 500 !important;
+  padding: 0.65rem 1.4rem !important;
+}
+
+.swal2-toast {
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15) !important;
+  border-radius: 0.85rem !important;
+}
+

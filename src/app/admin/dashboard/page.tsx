@@ -46,6 +46,15 @@ import {
   Timer,
   Award,
 } from 'lucide-react';
+import {
+  showSuccessAlert,
+  showErrorAlert,
+  showWarningAlert,
+  showConfirmDialog,
+  showDeleteConfirm,
+  showToast,
+} from '@/lib/alerts';
+
 
 interface Unit {
   id: string;
@@ -450,11 +459,14 @@ export default function AdminDashboardPage() {
 
   // 7. Auto-Escalation Scan Trigger
   const handleRunEscalation = async () => {
-    if (
-      !window.confirm(
-        'Run Automated SLA Escalation Scan now?\n\nThis will scan all active unresolved grievances and automatically escalate any cases that have breached their department SLA deadline to Senior Hospital Management.'
-      )
-    ) {
+    const confirmed = await showConfirmDialog(
+      'Run Automated SLA Escalation?',
+      'This will scan all active unresolved grievances and automatically escalate any cases that have breached their department SLA deadline to Senior Hospital Management.',
+      'Yes, Run Scan / स्क्यान सुरु गर्नुहोस्',
+      'Cancel / रद्द गर्नुहोस्',
+      true
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -464,12 +476,18 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message);
 
-      alert(data.message || 'SLA Escalation scan completed.');
+      await showSuccessAlert(
+        'SLA Escalation Complete',
+        data.message || 'SLA Escalation scan completed successfully.'
+      );
       fetchComplaints();
       fetchStats();
       fetchNotifications();
     } catch (err: any) {
-      alert(err.message || 'Failed to execute SLA escalation scan');
+      await showErrorAlert(
+        'Escalation Scan Failed',
+        err.message || 'Failed to execute SLA escalation scan'
+      );
     } finally {
       setRunningEscalation(false);
     }
@@ -567,12 +585,13 @@ export default function AdminDashboardPage() {
       if (!res.ok || !data.success) throw new Error(data.message);
 
       setSelectedComplaint(null);
+      showToast(`Grievance ${selectedComplaint.trackingId} updated successfully`, 'success');
       fetchComplaints();
       fetchStats();
       fetchAdminUsers();
       fetchNotifications();
     } catch (err: any) {
-      alert(err.message || 'Failed to update complaint');
+      showErrorAlert('Update Failed', err.message || 'Failed to update complaint');
     } finally {
       setUpdating(false);
     }
@@ -597,13 +616,16 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message);
 
-      alert('Department created successfully!');
+      await showSuccessAlert(
+        'Department Created',
+        `Department "${deptNameEn}" has been successfully added to the system.`
+      );
       setDeptNameEn('');
       setDeptNameNp('');
       setDeptCode('');
       fetchDepartments();
     } catch (err: any) {
-      alert(err.message || 'Failed to create department');
+      showErrorAlert('Creation Failed', err.message || 'Failed to create department');
     } finally {
       setCreating(false);
     }
@@ -628,13 +650,16 @@ export default function AdminDashboardPage() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.message);
 
-      alert('Unit created successfully!');
+      await showSuccessAlert(
+        'Unit Created',
+        `Unit "${unitNameEn}" has been successfully added to the system.`
+      );
       setUnitNameEn('');
       setUnitNameNp('');
       setUnitCode('');
       fetchDepartments();
     } catch (err: any) {
-      alert(err.message || 'Failed to create unit');
+      showErrorAlert('Creation Failed', err.message || 'Failed to create unit');
     } finally {
       setCreating(false);
     }
@@ -720,10 +745,14 @@ export default function AdminDashboardPage() {
 
   const handleDeleteAdmin = async (id: string, name: string) => {
     if (currentUser?.id === id) {
-      alert('You cannot delete your own account.');
+      showWarningAlert('Action Denied', 'You cannot delete your own active administrator account.');
       return;
     }
-    if (!window.confirm(`Are you sure you want to permanently delete user account "${name}"?`)) {
+    const confirmed = await showDeleteConfirm(
+      name,
+      'This user will lose access to the Grievance Administration portal immediately.'
+    );
+    if (!confirmed) {
       return;
     }
     setAdminError('');
@@ -735,13 +764,23 @@ export default function AdminDashboardPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.message || 'Failed to delete user');
       }
+      showToast(`User "${name}" deleted successfully`, 'success');
       fetchAdminUsers();
     } catch (err: any) {
+      showErrorAlert('Deletion Failed', err.message || 'Error deleting user');
       setAdminError(err.message || 'Error deleting user');
     }
   };
 
   const handleLogout = async () => {
+    const confirmed = await showConfirmDialog(
+      'Sign Out / लगआउट?',
+      'Are you sure you want to sign out of the Administrator Portal?',
+      'Yes, Sign Out / लगआउट गर्नुहोस्',
+      'Cancel / रद्द गर्नुहोस्'
+    );
+    if (!confirmed) return;
+
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/admin/login');
   };

@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
 import { UserCheck, Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
+import { showErrorAlert, showToast } from '@/lib/alerts';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -32,9 +33,12 @@ export default function AdminLoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
+      showToast('Welcome, Administrator!', 'success');
       router.push('/admin/dashboard');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Invalid credentials');
+      const msg = err.message || 'Invalid credentials';
+      setErrorMsg(msg);
+      showErrorAlert('Authentication Failed / लगइन असफल', msg);
     } finally {
       setLoading(false);
     }
