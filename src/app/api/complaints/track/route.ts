@@ -108,6 +108,18 @@ export async function GET(req: Request) {
         feedback: {
           select: { rating: true, comments: true, createdAt: true },
         },
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            senderType: true,
+            senderName: true,
+            message: true,
+            attachmentUrl: true,
+            attachmentName: true,
+            createdAt: true,
+          },
+        },
       },
     });
 
@@ -159,6 +171,7 @@ export async function GET(req: Request) {
         updatedAt: complaint.updatedAt,
         actions: complaint.actions,
         feedback: complaint.feedback,
+        messages: complaint.messages,
       },
     });
   } catch (error) {

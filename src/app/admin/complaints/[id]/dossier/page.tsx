@@ -21,6 +21,7 @@ import {
   UserCheck,
   Download,
   Share2,
+  MessageSquare,
 } from 'lucide-react';
 
 interface Unit {
@@ -94,12 +95,24 @@ interface Complaint {
   } | null;
   actions: ActionLog[];
   attachments?: Attachment[];
+  messages?: ComplaintMessage[];
   feedback?: {
     rating: number;
     comments: string | null;
     createdAt: string;
   } | null;
 }
+
+interface ComplaintMessage {
+  id: string;
+  senderType: string;
+  senderName: string;
+  message: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  createdAt: string;
+}
+
 
 export default function ComplaintDossierPage() {
   const params = useParams();
@@ -583,11 +596,68 @@ export default function ComplaintDossierPage() {
           </div>
 
           {/* ========================================================= */}
-          {/* 8. SECTION 6: FINAL DETERMINATION & CORRECTIVE ACTIONS */}
+          {/* 8. SECTION 6: DIRECT TWO-WAY PATIENT DIALOGUE & TRANSCRIPT */}
+          {/* ========================================================= */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-300 pb-1 flex items-center justify-between">
+              <span>SECTION 6: TWO-WAY PATIENT INQUIRY & DIALOGUE TRANSCRIPT ({complaint.messages?.length || 0})</span>
+              <span className="text-[10px] text-slate-500 font-normal">Confidential Inquiry Record</span>
+            </h3>
+
+            {complaint.messages && complaint.messages.length > 0 ? (
+              <div className="border border-slate-300 rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 border-b border-slate-300 text-slate-700 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-3 w-8">#</th>
+                      <th className="py-2 px-3 w-36">Timestamp</th>
+                      <th className="py-2 px-3 w-40">Sender Party</th>
+                      <th className="py-2 px-3">Message Transcript / Clarification Record</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {complaint.messages.map((msg, idx) => {
+                      const isStaff = msg.senderType === 'STAFF' || msg.senderType === 'ADMIN';
+                      return (
+                        <tr key={msg.id} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-3 font-mono text-slate-500">{idx + 1}</td>
+                          <td className="py-2 px-3 text-[11px] text-slate-600 font-mono">
+                            {new Date(msg.createdAt).toLocaleString()}
+                          </td>
+                          <td className="py-2 px-3">
+                            <span
+                              className={`font-semibold px-2 py-0.5 rounded text-[10px] inline-block ${
+                                isStaff
+                                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                  : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              }`}
+                            >
+                              {isStaff ? '🏥 ' : '👤 '}
+                              {msg.senderName}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-slate-800 leading-snug whitespace-pre-wrap">
+                            {msg.message}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="border border-slate-200 p-3 text-center text-xs text-slate-500 italic rounded-lg">
+                No direct two-way messages recorded for this case.
+              </div>
+            )}
+          </div>
+
+          {/* ========================================================= */}
+          {/* 9. SECTION 7: FINAL DETERMINATION & CORRECTIVE ACTIONS */}
           {/* ========================================================= */}
           <div className="space-y-2">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-300 pb-1">
-              SECTION 6: FINAL REDRESSAL DETERMINATION & CORRECTIVE ACTIONS
+              SECTION 7: FINAL REDRESSAL DETERMINATION & CORRECTIVE ACTIONS
             </h3>
 
             <div className="border border-slate-300 rounded-xl p-4 bg-emerald-50/40 space-y-3 text-xs">
@@ -641,11 +711,11 @@ export default function ComplaintDossierPage() {
           </div>
 
           {/* ========================================================= */}
-          {/* 9. SECTION 7: OFFICIAL COMMITTEE SIGN-OFF & ATTESTATION */}
+          {/* 10. SECTION 8: OFFICIAL COMMITTEE SIGN-OFF & ATTESTATION */}
           {/* ========================================================= */}
           <div className="pt-4 space-y-4 break-inside-avoid">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b-2 border-slate-900 pb-1">
-              SECTION 7: OFFICIAL COMMITTEE ATTESTATION & SIGN-OFF
+              SECTION 8: OFFICIAL COMMITTEE ATTESTATION & SIGN-OFF
             </h3>
 
             <p className="text-[10px] text-slate-500 leading-normal italic">

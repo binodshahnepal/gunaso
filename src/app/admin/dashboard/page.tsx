@@ -122,7 +122,19 @@ interface Complaint {
   isOverdue?: boolean;
   hoursOverdue?: number;
   hoursRemaining?: number;
+  messages?: ComplaintMessage[];
 }
+
+interface ComplaintMessage {
+  id: string;
+  senderType: string;
+  senderName: string;
+  message: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  createdAt: string;
+}
+
 
 interface DepartmentAnalytics {
   id: string;
@@ -286,6 +298,14 @@ export default function AdminDashboardPage() {
   const [modalNote, setModalNote] = useState('');
   const [modalIsPublicNote, setModalIsPublicNote] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  // Two-Way Messaging in Modal
+  const [modalActiveTab, setModalActiveTab] = useState<'ACTION' | 'MESSAGES'>('ACTION');
+  const [complaintMessages, setComplaintMessages] = useState<ComplaintMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [adminMessageText, setAdminMessageText] = useState('');
+  const [sendingAdminMessage, setSendingAdminMessage] = useState(false);
+
 
   // Department & Unit Creator Modal State
   const [showDeptModal, setShowDeptModal] = useState(false);
@@ -528,14 +548,58 @@ export default function AdminDashboardPage() {
     fetchComplaints();
   };
 
+  const fetchComplaintMessages = async (complaintId: string) => {
+    setLoadingMessages(true);
+    try {
+      const res = await fetch(`/api/admin/complaints/${complaintId}/messages`);
+      const data = await res.json();
+      if (data.success && data.messages) {
+        setComplaintMessages(data.messages);
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
   const openActionModal = (c: Complaint) => {
     setSelectedComplaint(c);
+    setModalActiveTab('ACTION');
     setModalStatus(c.status);
     setModalPriority(c.priority);
     setModalAssignedToId(c.assignedToId || '');
     setModalActionSummary(c.actionSummary || '');
     setModalNote('');
     setModalIsPublicNote(true);
+    setComplaintMessages([]);
+    setAdminMessageText('');
+    fetchComplaintMessages(c.id);
+  };
+
+  const handleSendAdminMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedComplaint || !adminMessageText.trim()) return;
+
+    setSendingAdminMessage(true);
+    try {
+      const res = await fetch(`/api/admin/complaints/${selectedComplaint.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: adminMessageText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message);
+
+      setComplaintMessages((prev) => [...prev, data.data]);
+      setAdminMessageText('');
+      showToast('Message sent to patient & recorded in audit log', 'success');
+      fetchComplaints();
+    } catch (err: any) {
+      showErrorAlert('Message Failed', err.message || 'Failed to send message');
+    } finally {
+      setSendingAdminMessage(false);
+    }
   };
 
   const handleNotificationClick = async (notif: NotificationItem) => {
@@ -2318,7 +2382,41 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            <form onSubmit={handleUpdateComplaint} className="p-6 space-y-6">
+            {/* MODAL TABS */}
+            <div className="flex border-b border-slate-200 px-6 pt-3 bg-slate-50 gap-6">
+              <button
+                type="button"
+                onClick={() => setModalActiveTab('ACTION')}
+                className={`pb-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+                  modalActiveTab === 'ACTION'
+                    ? 'border-[#27548b] text-[#27548b]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span>Action & Investigation</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalActiveTab('MESSAGES')}
+                className={`pb-3 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+                  modalActiveTab === 'MESSAGES'
+                    ? 'border-[#27548b] text-[#27548b]'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Two-Way Patient Dialogue</span>
+                {complaintMessages.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-[#27548b] font-bold">
+                    {complaintMessages.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {modalActiveTab === 'ACTION' ? (
+              <form onSubmit={handleUpdateComplaint} className="p-6 space-y-6">
               {/* COMPLAINT DETAILS SUMMARY */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-slate-500">
@@ -2522,7 +2620,143 @@ export default function AdminDashboardPage() {
                   <span>{updating ? 'Saving & Notifying...' : 'Save & Publish Updates'}</span>
                 </button>
               </div>
-            </form>
+              </form>
+            ) : (
+              <div className="p-6 space-y-6">
+                {/* MESSAGES THREAD HEADER */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-[#27548b]" />
+                      <span>
+                        Dialogue with Complainant ({selectedComplaint.isAnonymous ? 'Anonymous Filer' : (selectedComplaint.patientName || 'Patient')})
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Messages sent here are visible to the patient on their tracking link.
+                    </p>
+                  </div>
+                  {selectedComplaint.patientPhone ? (
+                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                      📱 WhatsApp Notifications Active
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                      🔑 Web Tracking Link Only
+                    </span>
+                  )}
+                </div>
+
+                {/* MESSAGES LIST */}
+                <div className="space-y-3 max-h-80 overflow-y-auto p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  {loadingMessages ? (
+                    <div className="text-center py-8 text-xs text-slate-500 flex items-center justify-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-[#27548b]" />
+                      <span>Loading conversation history...</span>
+                    </div>
+                  ) : complaintMessages.length === 0 ? (
+                    <div className="text-center py-8 space-y-2">
+                      <MessageSquare className="w-8 h-8 text-slate-300 mx-auto" />
+                      <p className="text-xs font-semibold text-slate-600">No messages in this case yet.</p>
+                      <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                        Use the box below to ask the patient for additional details, bill slips, or incident specifics.
+                      </p>
+                    </div>
+                  ) : (
+                    complaintMessages.map((msg) => {
+                      const isStaff = msg.senderType === 'STAFF' || msg.senderType === 'ADMIN';
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex flex-col ${isStaff ? 'items-end' : 'items-start'}`}
+                        >
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1 px-1">
+                            <span className="font-bold text-slate-700">
+                              {isStaff ? `🏥 ${msg.senderName}` : `👤 ${msg.senderName}`}
+                            </span>
+                            <span>•</span>
+                            <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}, {new Date(msg.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <div
+                            className={`max-w-lg rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-sm whitespace-pre-wrap ${
+                              isStaff
+                                ? 'bg-[#27548b] text-white rounded-br-xs'
+                                : 'bg-white text-slate-800 border border-slate-200 rounded-bl-xs'
+                            }`}
+                          >
+                            {msg.message}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* REPLY FORM */}
+                <form onSubmit={handleSendAdminMessage} className="space-y-3">
+                  <textarea
+                    rows={3}
+                    value={adminMessageText}
+                    onChange={(e) => setAdminMessageText(e.target.value)}
+                    placeholder="Type inquiry or update for the patient (e.g. request bill slip number, clarify incident time)..."
+                    className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#27548b] placeholder:text-slate-400"
+                  />
+
+                  {/* QUICK INQUIRIES */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                    <span className="font-semibold text-slate-600">Quick templates:</span>
+                    <button
+                      type="button"
+                      onClick={() => setAdminMessageText('Please provide your bill receipt or token number so we can verify the transaction.')}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors"
+                    >
+                      Request Bill Receipt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdminMessageText('Could you please specify which counter or room number you visited, and the approximate time?')}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors"
+                    >
+                      Clarify Counter/Time
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdminMessageText('We have initiated an inquiry with the duty staff and will update you shortly.')}
+                      className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors"
+                    >
+                      Investigation Ongoing
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalActiveTab('ACTION')}
+                      className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold text-xs rounded-xl hover:bg-slate-50"
+                    >
+                      Back to Action Form
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={sendingAdminMessage || !adminMessageText.trim()}
+                      className="px-5 py-2.5 bg-[#27548b] hover:bg-blue-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                    >
+                      {sendingAdminMessage ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Sending to Patient...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5" />
+                          <span>Send Message to Patient</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       )}

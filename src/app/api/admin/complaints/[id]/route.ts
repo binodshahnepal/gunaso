@@ -42,6 +42,9 @@ export async function GET(
         },
         feedback: true,
         attachments: true,
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 

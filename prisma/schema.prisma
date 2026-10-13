@@ -138,6 +138,7 @@ model Complaint {
   attachments      Attachment[]
   feedback         Feedback?
   notifications    Notification[]
+  messages         ComplaintMessage[]
 }
 
 model ComplaintAction {
@@ -184,3 +185,18 @@ model Notification {
   isRead      Boolean    @default(false)
   createdAt   DateTime   @default(now())
 }
+
+model ComplaintMessage {
+  id             String    @id @default(cuid())
+  complaintId    String
+  complaint      Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  senderType     String    // "PATIENT" | "STAFF" | "ADMIN"
+  senderId       String?   // User ID if staff/admin, null if patient
+  senderName     String    // Display name (e.g., "Dr. Ramesh", "Investigating Officer", "Patient")
+  message        String
+  attachmentUrl  String?
+  attachmentName String?
+  isRead         Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+}
+

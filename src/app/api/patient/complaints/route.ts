@@ -81,6 +81,9 @@ export async function GET(req: Request) {
           take: 5,
         },
         feedback: true,
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 
