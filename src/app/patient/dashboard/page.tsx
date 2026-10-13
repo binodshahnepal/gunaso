@@ -475,8 +475,8 @@ export default function PatientDashboardPage() {
                         </span>
                       )}
 
-                      <span className="text-xs text-slate-400">
-                        Lodged: {new Date(c.createdAt).toLocaleDateString()}
+                      <span className="text-xs text-slate-500 font-medium">
+                        Lodged: {new Date(c.createdAt).toLocaleDateString()} at {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 

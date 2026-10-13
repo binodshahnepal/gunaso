@@ -10,6 +10,7 @@ import {
   Filter,
   CheckCircle2,
   Clock,
+  Calendar,
   AlertTriangle,
   FileText,
   UserCheck,
@@ -955,6 +956,7 @@ export default function AdminDashboardPage() {
 
     const headers = [
       'Tracking ID',
+      'Submitted Date & Time',
       'Status',
       'SLA Status',
       'Priority',
@@ -973,6 +975,7 @@ export default function AdminDashboardPage() {
 
     const rows = complaints.map((c) => [
       `"${c.trackingId}"`,
+      `"${new Date(c.createdAt).toLocaleString()}"`,
       `"${c.status}"`,
       `"${c.isOverdue ? `Overdue (+${c.hoursOverdue}h)` : c.status === 'RESOLVED' ? 'Resolved' : `Within SLA (${c.hoursRemaining}h left)`}"`,
       `"${c.priority}"`,
@@ -1760,10 +1763,11 @@ export default function AdminDashboardPage() {
             {/* COMPLAINTS DATA TABLE */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1350px]">
+                <table className="w-full text-left border-collapse min-w-[1520px]">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase font-semibold">
-                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Tracking ID</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[130px]">Tracking ID</th>
+                      <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px]">Submitted Date & Time</th>
                       <th className="py-3.5 px-4 whitespace-nowrap min-w-[140px]">Status</th>
                       <th className="py-3.5 px-4 whitespace-nowrap min-w-[160px]">SLA Target & Status</th>
                       <th className="py-3.5 px-4 whitespace-nowrap min-w-[100px]">Priority</th>
@@ -1777,13 +1781,13 @@ export default function AdminDashboardPage() {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {loading ? (
                       <tr>
-                        <td colSpan={9} className="py-10 text-center text-slate-400">
+                        <td colSpan={10} className="py-10 text-center text-slate-400">
                           Loading complaints data...
                         </td>
                       </tr>
                     ) : complaints.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-10 text-center text-slate-400">
+                        <td colSpan={10} className="py-10 text-center text-slate-400">
                           No complaints match the filter criteria.
                         </td>
                       </tr>
@@ -1794,6 +1798,19 @@ export default function AdminDashboardPage() {
                           <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-3.5 px-4 font-mono font-bold text-emerald-800 whitespace-nowrap">
                               {c.trackingId}
+                            </td>
+
+                            {/* Submitted Date & Time */}
+                            <td className="py-3.5 px-4 whitespace-nowrap min-w-[160px]" title={new Date(c.createdAt).toLocaleString()}>
+                              <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>{new Date(c.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                                <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span>{new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="text-slate-400 font-mono text-[10px]">({formatTimeAgo(c.createdAt)})</span>
+                              </div>
                             </td>
 
                             <td className="py-3.5 px-4 whitespace-nowrap">
@@ -2575,7 +2592,10 @@ export default function AdminDashboardPage() {
                         : `${selectedComplaint.patientName || 'N/A'} (${selectedComplaint.patientPhone || 'N/A'})`}
                     </strong>
                   </span>
-                  <span>Submitted: {new Date(selectedComplaint.createdAt).toLocaleString()}</span>
+                  <span className="inline-flex items-center gap-1 font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                    <Calendar className="w-3 h-3 text-slate-500" />
+                    <span>Submitted: {new Date(selectedComplaint.createdAt).toLocaleString()}</span>
+                  </span>
                 </div>
               </div>
 

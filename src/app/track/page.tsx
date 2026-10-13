@@ -538,7 +538,7 @@ function TrackContent() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                   <div>
                     <span className="text-xs text-slate-500 block">Location:</span>
                     <span className="font-medium text-slate-800">{complaint.location}</span>
@@ -546,6 +546,10 @@ function TrackContent() {
                   <div>
                     <span className="text-xs text-slate-500 block">Incident Date:</span>
                     <span className="font-medium text-slate-800">{new Date(complaint.incidentDate).toLocaleDateString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-slate-500 block">Submitted At:</span>
+                    <span className="font-medium text-slate-800">{new Date(complaint.createdAt).toLocaleDateString()} {new Date(complaint.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 </div>
 
