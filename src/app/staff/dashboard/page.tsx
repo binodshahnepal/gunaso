@@ -655,7 +655,7 @@ export default function StaffDashboardPage() {
                   Total in Dept
                 </p>
                 <p className="text-2xl font-black text-slate-900 mt-0.5">{stats.total}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">सबै गुनासोहरू</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">सबै सुझाव तथा गुनासोहरू</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
                 <FileText className="w-5 h-5" />

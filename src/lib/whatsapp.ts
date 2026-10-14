@@ -1,5 +1,5 @@
 /**
- * WhatsApp Notification Service for BPKCH Gunaso Portal
+ * WhatsApp Notification Service for BPKCH Sujhaab Portal
  * Integrates with Meta WhatsApp Cloud API / Twilio WhatsApp API
  */
 
@@ -37,27 +37,27 @@ export async function sendWhatsAppAlert(params: WhatsAppAlertParams) {
   if (type === 'CREATED') {
     messageText =
       `🏥 *B.P. Koirala Memorial Cancer Hospital (BPKMCH)*\n` +
-      `*Gunaso Grievance Ticket Created*\n\n` +
+      `*Sujhaab & Grievance Ticket Created*\n\n` +
       `Dear ${patientName || 'Patient'},\n` +
-      `Your grievance has been successfully lodged.\n\n` +
+      `Your suggestion / grievance has been successfully lodged.\n\n` +
       `📋 *Tracking ID:* ${trackingId}\n` +
       `🔑 *Security PIN:* ${pin}\n` +
       `🏢 *Department:* ${departmentName || 'General Hospital'}${unitName ? ` (${unitName})` : ''}\n` +
-      `📌 *Status:* SUBMITTED (उजुरी दर्ता भयो)\n\n` +
+      `📌 *Status:* SUBMITTED (उजुरी / सुझाव दर्ता भयो)\n\n` +
       `🔍 *Track Status Live:* ${trackingUrl}\n\n` +
-      `_Our Grievance Committee will investigate your issue promptly._`;
+      `_Our Sujhaab & Grievance Committee will review and address your issue promptly._`;
   } else if (type === 'RESOLVED') {
     messageText =
-      `🏥 *BPKMCH Grievance Resolution Alert*\n\n` +
+      `🏥 *BPKMCH Sujhaab & Grievance Resolution Alert*\n\n` +
       `Dear ${patientName || 'Patient'},\n` +
-      `Your grievance *${trackingId}* has been *RESOLVED* by hospital administration.\n\n` +
-      `📝 *Action Taken Report:*\n${actionSummary || 'Action logged by grievance committee.'}\n\n` +
+      `Your suggestion / grievance *${trackingId}* has been *RESOLVED* by hospital administration.\n\n` +
+      `📝 *Action Taken Report:*\n${actionSummary || 'Action logged by committee.'}\n\n` +
       `🔍 *View Full Report & Rate Satisfaction:* ${trackingUrl}`;
   } else {
     messageText =
-      `🏥 *BPKMCH Grievance Status Update*\n\n` +
+      `🏥 *BPKMCH Sujhaab & Grievance Status Update*\n\n` +
       `Dear ${patientName || 'Patient'},\n` +
-      `The status of your grievance *${trackingId}* has been updated to: *${status}*.\n\n` +
+      `The status of your ticket *${trackingId}* has been updated to: *${status}*.\n\n` +
       `🔍 *Track Live Status:* ${trackingUrl}`;
   }
 

@@ -1,7 +1,7 @@
 {
-  "name": "BPKMCH Gunaso Portal - क्यान्सर अस्पताल गुनासो प्रणाली",
-  "short_name": "BPKMCH Gunaso",
-  "description": "Official Patient Grievance & Complaint Redressal Portal for B.P. Koirala Memorial Cancer Hospital (BPKMCH), Bharatpur-7, Chitwan, Nepal.",
+  "name": "BPKMCH Sujhaab Portal - क्यान्सर अस्पताल सुझाव तथा गुनासो प्रणाली",
+  "short_name": "BPKMCH Sujhaab",
+  "description": "Official Patient Suggestion & Grievance Redressal Portal for B.P. Koirala Memorial Cancer Hospital (BPKMCH), Bharatpur-7, Chitwan, Nepal.",
   "start_url": "/",
   "id": "/",
   "display": "standalone",

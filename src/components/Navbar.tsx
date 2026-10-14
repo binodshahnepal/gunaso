@@ -46,7 +46,7 @@ export default function Navbar() {
               </p>
               <div className="flex items-center justify-center sm:justify-start gap-2 pt-0.5">
                 <span className="bg-blue-900/80 text-blue-200 text-[10px] sm:text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-400/30">
-                  उजुरी तथा गुनासो व्यवस्थापन प्रणाली (Gunaso Portal)
+                  सुझाव तथा गुनासो व्यवस्थापन प्रणाली (Sujhaab Portal)
                 </span>
               </div>
             </div>
@@ -132,7 +132,7 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden w-full flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-700">BPKMCH Grievance Portal</span>
+            <span className="text-xs font-bold text-slate-700">BPKMCH Sujhaab Portal</span>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="p-1.5 text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200"

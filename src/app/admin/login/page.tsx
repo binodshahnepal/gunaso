@@ -66,7 +66,7 @@ export default function AdminLoginPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Admin & Staff Portal</h1>
               <p className="text-xs text-slate-500 mt-1">
-                बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल • Grievance Administration
+                बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल • Sujhaab & Grievance Administration
               </p>
             </div>
           </div>

@@ -305,11 +305,11 @@ export default function LodgeComplaintPage() {
               <div className="space-y-2">
                 <div className="inline-flex items-center gap-2 bg-white/10 text-blue-100 text-xs px-2.5 py-1 rounded-full font-medium">
                   <FileText className="w-3.5 h-3.5" />
-                  <span>Patient Grievance Form / उजुरी फारम</span>
+                  <span>Patient Sujhaab & Grievance Form / सुझाव तथा उजुरी फारम</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold">Lodge a Hospital Complaint</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold">Submit Hospital Sujhaab / Complaint</h1>
                 <p className="text-xs sm:text-sm text-blue-100">
-                  Please select department and unit to help our grievance committee investigate and resolve your issue.
+                  Please select department and unit to help our Sujhaab & Grievance committee review, investigate, and address your issue.
                 </p>
               </div>
               <div className="hidden sm:flex w-16 h-16 bg-white rounded-full p-1 shadow-md shrink-0 items-center justify-center">

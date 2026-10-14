@@ -5,7 +5,7 @@ set -e
 export PATH=$PATH:/usr/bin:/usr/local/bin
 
 echo "=========================================="
-echo "🚀 BPKCH Gunaso CI/CD Auto-Deployment"
+echo "🚀 BPKCH Sujhaab CI/CD Auto-Deployment"
 echo "=========================================="
 
 cd /home/tivrasoft/gunaso

@@ -80,10 +80,10 @@ export default function PwaRegister() {
       <div className="flex-1 min-w-0">
         <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
           <Smartphone className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-          <span>Install BPKMCH Gunaso App</span>
+          <span>Install BPKMCH Sujhaab App</span>
         </div>
         <p className="text-[11px] text-blue-200 mt-0.5 line-clamp-1">
-          मोबाइलमा एप इन्स्टल गरी छिटो उजुरी तथा स्थिति हेर्नुहोस्।
+          मोबाइलमा एप इन्स्टल गरी छिटो सुझाव, उजुरी तथा स्थिति हेर्नुहोस्।
         </p>
       </div>
 

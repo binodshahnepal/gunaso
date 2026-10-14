@@ -31,12 +31,12 @@ export default function HomePage() {
             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-blue-100 text-xs font-semibold px-3.5 py-1.5 rounded-full shadow-inner">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल • गुनासो प्रणाली</span>
+                <span>बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल • सुझाव प्रणाली</span>
               </div>
 
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
-                BPKMCH Patient Grievance & <br />
-                <span className="text-amber-300">Gunaso Portal (गुनासो)</span>
+                BPKMCH Patient Suggestion & <br />
+                <span className="text-amber-300">Sujhaab Portal (सुझाव तथा गुनासो)</span>
               </h1>
 
               <p className="text-base sm:text-lg text-blue-100/95 max-w-2xl leading-relaxed font-normal">
@@ -145,7 +145,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-3 mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-              Why Use the BPKMCH Gunaso Portal? / मुख्य विशेषताहरू
+              Why Use the BPKMCH Sujhaab Portal? / मुख्य विशेषताहरू
             </h2>
             <p className="text-slate-600 text-sm sm:text-base">
               Designed to uphold patient dignity, privacy, and accountability in cancer care & general hospital services.

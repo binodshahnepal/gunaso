@@ -272,7 +272,7 @@ export default function ComplaintDossierPage() {
                   B.P. Koirala Memorial Cancer Hospital
                 </h1>
                 <div className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">
-                  Grievance Redressal & Quality Assurance Cell • गुनासो व्यवस्थापन तथा छानबिन शाखा
+                  Suggestion, Grievance & Quality Assurance Cell • सुझाव तथा गुनासो व्यवस्थापन शाखा
                 </div>
                 <div className="text-[11px] text-slate-600">
                   Bharatpur-7, Chitwan, Bagmati Province, Nepal • Tel: 056-597005 / 056-524501 • Email: administration@bpkmch.gov.np
@@ -311,10 +311,10 @@ export default function ComplaintDossierPage() {
           {/* ========================================================= */}
           <div className="text-center py-2 space-y-1">
             <h2 className="text-lg font-black text-slate-900 uppercase tracking-wide underline underline-offset-4 decoration-emerald-700">
-              OFFICIAL GRIEVANCE INVESTIGATION REPORT & CASE DOSSIER
+              OFFICIAL SUJHAAB & GRIEVANCE INVESTIGATION REPORT & CASE DOSSIER
             </h2>
             <div className="text-xs text-slate-600 font-medium">
-              गुनासो छानबिन, सत्यतथ्य विवरण, विभागीय निरूपण तथा कारबाही अभिलेख
+              सुझाव तथा गुनासो छानबिन, सत्यतथ्य विवरण, विभागीय निरूपण तथा कारबाही अभिलेख
             </div>
           </div>
 
@@ -886,7 +886,7 @@ export default function ComplaintDossierPage() {
             {/* Official Footer */}
             <div className="pt-6 border-t border-slate-200 flex flex-wrap items-center justify-between text-[9px] text-slate-400">
               <div>
-                BPKMCH Grievance Management System (Gunaso Portal) • Confidential Internal Docket
+                BPKMCH Sujhaab & Grievance Management System (Sujhaab Portal) • Confidential Internal Docket
               </div>
               <div>
                 Page 1 of 1 • System Verification Stamp: BPKMCH-VERIFIED-{complaint.trackingId}

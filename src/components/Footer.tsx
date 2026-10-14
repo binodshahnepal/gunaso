@@ -17,12 +17,12 @@ export default function Footer() {
                 />
               </div>
               <div className="leading-tight">
-                <div className="text-sm font-extrabold text-white">BPKMCH Gunaso Portal</div>
+                <div className="text-sm font-extrabold text-white">BPKMCH Sujhaab Portal</div>
                 <div className="text-[10px] text-blue-200 font-normal">बी.पी. कोइराला मेमोरियल क्यान्सर अस्पताल</div>
               </div>
             </div>
             <p className="text-xs text-blue-100/80 leading-relaxed">
-              Official Grievance & Complaint Redressal Portal for B.P. Koirala Memorial Cancer Hospital (BPKMCH), Bharatpur-7, Chitwan, Nepal. Dedicated to transparent patient care, quality healthcare, and prompt issue investigation.
+              Official Suggestion & Grievance Redressal Portal (सुझाव तथा गुनासो पोर्टल) for B.P. Koirala Memorial Cancer Hospital (BPKMCH), Bharatpur-7, Chitwan, Nepal. Dedicated to transparent patient care, quality healthcare, and prompt issue investigation.
             </p>
           </div>
 
@@ -101,7 +101,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-blue-900/80 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-blue-300/80">
-          <p>© 2026 B.P. Koirala Memorial Cancer Hospital (BPKMCH) Gunaso Portal. All rights reserved.</p>
+          <p>© 2026 B.P. Koirala Memorial Cancer Hospital (BPKMCH) Sujhaab Portal. All rights reserved.</p>
           <p className="mt-2 sm:mt-0">Confidential • Secure • Transparent</p>
         </div>
       </div>
