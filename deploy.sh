@@ -31,5 +31,5 @@ pm2 save
 
 echo "=========================================="
 echo "✅ Deployment completed successfully!"
-echo "🌐 URL: https://gunaso.4-193-121-134.sslip.io"
+echo "🌐 URL: https://sujhaab.4-193-121-134.sslip.io"
 echo "=========================================="
